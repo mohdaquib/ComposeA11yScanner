@@ -6,4 +6,17 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.detekt)
+}
+
+detekt {
+    source.setFrom(
+        fileTree(rootDir) {
+            include("**/src/**/*.kt")
+            exclude("**/build/**", "**/.gradle/**")
+        }
+    )
+    config.setFrom(file("config/detekt/detekt.yml"))
+    buildUponDefaultConfig = true
+    parallel = true
 }
