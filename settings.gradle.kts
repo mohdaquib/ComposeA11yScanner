@@ -24,3 +24,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "ComposeA11yScanner"
 include(":app")
+include(":scanner-core")
+include(":scanner-ui")
+include(":scanner-rules")
+include(":sample")

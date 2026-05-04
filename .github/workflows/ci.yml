@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - name: Run Android lint
+        run: ./gradlew lint
+
+  detekt:
+    name: Detekt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - name: Run Detekt
+        run: ./gradlew detekt
+
+  unit-tests:
+    name: Unit Tests & Coverage (≥80%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - name: Run unit tests with coverage
+        run: ./gradlew testDebugUnitTest
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            app/build/reports/coverage/
+            scanner-core/build/reports/coverage/
+            scanner-ui/build/reports/coverage/
+            scanner-rules/build/reports/coverage/
+          retention-days: 14
+      - name: Check coverage ≥ 80%
+        run: python3 scripts/check_coverage.py . 80
