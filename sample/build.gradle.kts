@@ -35,6 +35,7 @@ android {
 dependencies {
     implementation(project(":scanner-ui"))
     implementation(project(":scanner-core"))
+    implementation(project(":scanner-rules"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

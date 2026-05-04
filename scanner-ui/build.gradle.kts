@@ -30,6 +30,7 @@ android {
 
 dependencies {
     implementation(project(":scanner-core"))
+    implementation(project(":scanner-rules"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(platform(libs.androidx.compose.bom))
