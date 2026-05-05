@@ -17,7 +17,9 @@ style:
     active: false
   ForbiddenComment:
     active: true
-    values: [ 'TODO:', 'FIXME:', 'STOPSHIP:' ]
+    comments:
+      - "TODO:"
+      - "FIXME:"
 
 formatting:
   FinalNewline:
