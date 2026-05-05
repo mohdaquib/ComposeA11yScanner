@@ -9,6 +9,10 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
+dependencies {
+    detektPlugins(libs.detekt.formatting)
+}
+
 detekt {
     source.setFrom(
         fileTree(rootDir) {
