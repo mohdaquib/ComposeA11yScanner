@@ -11,6 +11,32 @@ interface A11yRule {
     val wcagReference: String?
 
     fun evaluate(node: A11yNode): A11yIssue?
+
+    /** Evaluates an entire node list. Per-node rules are handled by the default implementation. */
+    fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> = nodes.mapNotNull { evaluate(it) }
+}
+
+/**
+ * Base for rules that must inspect all nodes together (e.g. duplicate detection).
+ * [evaluate] is sealed to a no-op; subclasses implement [evaluateAll] instead.
+ */
+abstract class BaseScanRule : A11yRule {
+
+    final override fun evaluate(node: A11yNode): A11yIssue? = null
+
+    abstract override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue>
+
+    protected fun issue(node: A11yNode, message: String, howToFix: String): A11yIssue =
+        A11yIssue(
+            issueId = "${ruleId}_${node.nodeId}",
+            severity = severity,
+            ruleId = ruleId,
+            ruleName = ruleName,
+            affectedNode = node,
+            message = message,
+            howToFix = howToFix,
+            wcagReference = wcagReference,
+        )
 }
 
 abstract class BaseA11yRule : A11yRule {
