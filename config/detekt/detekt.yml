@@ -13,6 +13,15 @@ style:
     active: false
   MagicNumber:
     active: false
+  NewLineAtEndOfFile:
+    active: false
+  ForbiddenComment:
+    active: true
+    values: [ 'TODO:', 'FIXME:', 'STOPSHIP:' ]
+
+formatting:
+  FinalNewline:
+    active: false
 
 complexity:
   LongMethod:
@@ -28,5 +37,5 @@ complexity:
 
 naming:
   FunctionNaming:
-    functionPattern: '[a-z][a-zA-Z0-9]*'
+    functionPattern: '[a-zA-Z][a-zA-Z0-9]*'
     excludes: ['**/test/**', '**/androidTest/**']
