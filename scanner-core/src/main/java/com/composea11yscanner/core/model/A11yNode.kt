@@ -12,4 +12,5 @@ data class A11yNode(
     val isFocusable: Boolean,
     val isMergedDescendant: Boolean,
     val depth: Int,
+    val role: A11yRole? = null,
 )
