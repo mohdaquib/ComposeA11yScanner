@@ -8,30 +8,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,10 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.composea11yscanner.core.model.A11yIssue
@@ -66,30 +56,6 @@ private val InfoColor = Color(0xFF1976D2)
 private val ScoreGoodColor = Color(0xFF2E7D32)  // ≥ 90 %
 private val ScoreFairColor = Color(0xFFF57C00)  // ≥ 70 %
 private val ScorePoorColor = Color(0xFFC62828)  // < 70 %
-
-private val SeverityOrder = listOf(A11ySeverity.Error, A11ySeverity.Warning, A11ySeverity.Info)
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Extension helpers — file-private to avoid leaking scanner-core ↔ UI coupling
-// ─────────────────────────────────────────────────────────────────────────────
-
-private fun A11ySeverity.toColor(): Color = when (this) {
-    A11ySeverity.Error -> ErrorColor
-    A11ySeverity.Warning -> WarningColor
-    A11ySeverity.Info -> InfoColor
-}
-
-private fun A11ySeverity.toIcon(): ImageVector = when (this) {
-    A11ySeverity.Error -> Icons.Filled.Error
-    A11ySeverity.Warning -> Icons.Filled.Warning
-    A11ySeverity.Info -> Icons.Filled.Info
-}
-
-private fun A11ySeverity.label(): String = when (this) {
-    A11ySeverity.Error -> "Error"
-    A11ySeverity.Warning -> "Warning"
-    A11ySeverity.Info -> "Info"
-}
 
 private fun Float.toScoreColor(): Color = when {
     this >= 90f -> ScoreGoodColor
@@ -310,167 +276,6 @@ private fun ScoreChip(score: Float, onClick: () -> Unit) {
             contentDescription = "View full report",
             tint = Color.White,
             modifier = Modifier.size(16.dp),
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Report sheet
-// ─────────────────────────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ScanReportSheet(
-    result: ScanResult,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val grouped = remember(result) { result.issues.groupBy { it.severity } }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
-        LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
-            item {
-                ReportScoreHeader(result = result)
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-            }
-
-            if (result.issues.isEmpty()) {
-                item {
-                    Text(
-                        text = "No issues found — all checks passed.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                    )
-                }
-            } else {
-                SeverityOrder.forEach { severity ->
-                    val issues = grouped[severity] ?: return@forEach
-                    item(key = "header-${severity.label()}") {
-                        SeverityGroupHeader(severity = severity, count = issues.size)
-                    }
-                    items(issues, key = { it.issueId }) { issue ->
-                        IssueReportRow(issue = issue)
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 16.dp),
-                            thickness = 0.5.dp,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReportScoreHeader(result: ScanResult) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "Accessibility Score",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = "${result.totalNodes} nodes scanned · ${result.passedRules} rules passed",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = "${result.overallScore.toInt()}%",
-                style = MaterialTheme.typography.displaySmall,
-                color = result.overallScore.toScoreColor(),
-            )
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (result.errorCount > 0) {
-                CountChip(result.errorCount, ErrorColor, Icons.Filled.Error, "${result.errorCount} errors")
-            }
-            if (result.warningCount > 0) {
-                CountChip(result.warningCount, WarningColor, Icons.Filled.Warning, "${result.warningCount} warnings")
-            }
-            if (result.infoCount > 0) {
-                CountChip(result.infoCount, InfoColor, Icons.Filled.Info, "${result.infoCount} info items")
-            }
-        }
-    }
-}
-
-@Composable
-private fun SeverityGroupHeader(severity: A11ySeverity, count: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = severity.toIcon(),
-                contentDescription = null,
-                tint = severity.toColor(),
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = severity.label(),
-                style = MaterialTheme.typography.labelMedium,
-                color = severity.toColor(),
-            )
-        }
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun IssueReportRow(issue: A11yIssue) {
-    val barColor = issue.severity.toColor()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                // 3dp coloured left border drawn outside padding so content
-                // starts cleanly 12dp from the bar edge.
-                drawRect(color = barColor, size = size.copy(width = 3.dp.toPx()))
-            }
-            .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text(
-            text = issue.ruleName,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
-        Text(
-            text = issue.affectedNode.composableName,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = issue.message,
-            style = MaterialTheme.typography.bodySmall,
         )
     }
 }
