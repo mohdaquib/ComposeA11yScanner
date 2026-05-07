@@ -27,6 +27,7 @@ fun ScannerOverlay(modifier: Modifier = Modifier) {
 @Composable
 fun A11yIssueOverlay(
     scanResult: ScanResult?,
+    onIssueSelected: (A11yIssue) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
