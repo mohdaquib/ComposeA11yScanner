@@ -1,6 +1,8 @@
 package com.composea11yscanner.sample
 
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -38,12 +41,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.platform.AbstractComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.SemanticsOwner
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.composea11yscanner.ComposeA11yScanner
+import com.composea11yscanner.core.model.A11yNode
+import com.composea11yscanner.core.model.ScannerConfig
+import com.composea11yscanner.rules.ScannerRules
+import com.composea11yscanner.triggers.scanOnShake
+import com.composea11yscanner.ui.A11yNodeExtractor
+import com.composea11yscanner.ui.A11yScannerController
+import com.composea11yscanner.ui.A11yScannerScaffold
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -61,22 +74,43 @@ class SampleActivity : ComponentActivity() {
 
 @Composable
 fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
+    val activity = LocalContext.current as? ComponentActivity
     var selectedScreen by remember { mutableIntStateOf(0) }
     val screens = listOf("Login", "Feed", "Form")
+    val scannerController = remember(activity) {
+        A11yScannerController(
+            nodeProvider = { activity?.extractBrokenSampleNodes().orEmpty() },
+            screenDensity = activity?.resources?.displayMetrics?.density ?: 1f,
+        )
+    }
+    val scannerConfig = remember(selectedScreen) {
+        ScannerConfig(
+            enabledRules = ScannerRules.allRuleIds().toSet(),
+            autoScan = selectedScreen == 0,
+        )
+    }
+    scanOnShake(onScanRequested = { scannerController.startScan() })
 
-    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+    A11yScannerScaffold(
+        scannerController = scannerController,
+        config = scannerConfig,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            floatingActionButton = {
+                FloatingActionButton(onClick = { scannerController.startScan() }) {
+                    Text("Scan")
+                }
+            },
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Column {
                     Text(
@@ -85,31 +119,28 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Pick a screen, then run the scanner.",
+                        text = "Login scans automatically. Use the FAB or shake on any screen.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Button(onClick = { ComposeA11yScanner.triggerScan() }) {
-                    Text("Run Scan")
-                }
-            }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                screens.forEachIndexed { index, label ->
-                    Button(
-                        onClick = { selectedScreen = index },
-                        enabled = selectedScreen != index,
-                    ) {
-                        Text(label)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    screens.forEachIndexed { index, label ->
+                        Button(
+                            onClick = { selectedScreen = index },
+                            enabled = selectedScreen != index,
+                        ) {
+                            Text(label)
+                        }
                     }
                 }
-            }
 
-            when (selectedScreen) {
-                0 -> BrokenLoginScreen()
-                1 -> BrokenFeedScreen()
-                else -> BrokenFormScreen()
+                when (selectedScreen) {
+                    0 -> BrokenLoginScreen()
+                    1 -> BrokenFeedScreen()
+                    else -> BrokenFormScreen()
+                }
             }
         }
     }
@@ -343,4 +374,33 @@ fun BrokenAccessibilitySampleAppPreview() {
     MaterialTheme {
         BrokenAccessibilitySampleApp()
     }
+}
+
+private fun ComponentActivity.extractBrokenSampleNodes(): List<A11yNode> =
+    runCatching {
+        val hostView = (window.decorView as? ViewGroup)
+            ?.findFirstAbstractComposeView()
+            ?: return emptyList()
+        val semanticsOwner = hostView.findSemanticsOwner() ?: return emptyList()
+        A11yNodeExtractor(Density(this)).extract(semanticsOwner)
+    }.getOrDefault(emptyList())
+
+private fun ViewGroup.findFirstAbstractComposeView(): AbstractComposeView? {
+    for (i in 0 until childCount) {
+        val child = getChildAt(i)
+        if (child is AbstractComposeView) return child
+        if (child is ViewGroup) {
+            child.findFirstAbstractComposeView()?.let { return it }
+        }
+    }
+    return null
+}
+
+private fun AbstractComposeView.findSemanticsOwner(): SemanticsOwner? {
+    val composeOwnerView: View = getChildAt(0) ?: return null
+    return runCatching {
+        composeOwnerView.javaClass
+            .getMethod("getSemanticsOwner")
+            .invoke(composeOwnerView) as? SemanticsOwner
+    }.getOrNull()
 }
