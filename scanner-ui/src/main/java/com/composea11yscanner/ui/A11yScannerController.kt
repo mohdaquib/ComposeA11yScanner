@@ -64,6 +64,14 @@ class A11yScannerController(
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
+    /**
+     * Hot [Flow] backed by the internal [MutableSharedFlow].
+     *
+     * Observe this to receive [ScannerState] updates without triggering a new scan.
+     * Use [startScan] to both initiate a scan and receive its emissions.
+     */
+    val stateFlow: Flow<ScannerState> = _state.asSharedFlow()
+
     // --- Builder methods ---
 
     /** Replaces the active configuration. Returns [this] for chaining. */
