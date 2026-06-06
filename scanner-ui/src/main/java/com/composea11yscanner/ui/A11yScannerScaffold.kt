@@ -64,13 +64,20 @@ fun A11yScannerScaffold(
         onDispose { scannerController.stopScan() }
     }
 
-    // Apply config and (re)start the scan whenever config changes.
-    // Clearing selectedIssue at scan start prevents the detail panel from
-    // showing stale data while the new result is being produced.
-    LaunchedEffect(config) {
-        scannerController.configure(config).startScan().collect { state ->
+    LaunchedEffect(Unit) {
+        scannerController.stateFlow.collect { state ->
             scannerState = state
             if (state is ScannerState.Scanning) selectedIssue = null
+        }
+    }
+
+    // Apply config and (re)start the scan whenever config changes.
+    LaunchedEffect(config) {
+        scannerController.configure(config)
+        if (config.autoScan) {
+            scannerController.startScan()
+        } else {
+            scannerController.stopScan()
         }
     }
 
