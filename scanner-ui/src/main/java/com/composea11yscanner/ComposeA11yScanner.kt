@@ -151,6 +151,19 @@ object ComposeA11yScanner {
         return entries.values.lastOrNull()?.controller?.stateFlow ?: emptyFlow()
     }
 
+    /**
+     * Starts a scan for the most recently installed activity and returns the shared state flow.
+     *
+     * This is useful for consumer-side triggers such as long press, shake, or debug menu actions.
+     * Returns an empty flow when no scanner is installed.
+     *
+     * @throws IllegalStateException in non-debug builds or if called before [install].
+     */
+    fun triggerScan(): Flow<ScannerState> {
+        requireDebugBuild()
+        return entries.values.lastOrNull()?.controller?.startScan() ?: emptyFlow()
+    }
+
     // ── Debug guard ─────────────────────────────────────────────────────────────
 
     private fun requireDebugBuild(context: Context) {
@@ -255,16 +268,20 @@ private fun ScannerOverlayContent(
 
     DisposableEffect(Unit) { onDispose { controller.stopScan() } }
 
+    LaunchedEffect(Unit) {
+        controller.stateFlow.collect { state ->
+            scannerState = state
+            if (state is ScannerState.Scanning) selectedIssue = null
+        }
+    }
+
     LaunchedEffect(config) {
+        controller.configure(config)
         if (!config.autoScan) {
             controller.stopScan()
             return@LaunchedEffect
         }
-
-        controller.configure(config).startScan().collect { state ->
-            scannerState = state
-            if (state is ScannerState.Scanning) selectedIssue = null
-        }
+        controller.startScan()
     }
 
     val scanResult = (scannerState as? ScannerState.Complete)?.result

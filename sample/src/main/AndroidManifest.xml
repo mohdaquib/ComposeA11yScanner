@@ -10,6 +10,16 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ComposeA11yScanner">
+        <meta-data
+            android:name="a11y_scanner_min_touch_target"
+            android:value="48" />
+        <meta-data
+            android:name="a11y_scanner_min_contrast"
+            android:value="4.5" />
+        <meta-data
+            android:name="a11y_scanner_auto_scan"
+            android:value="false" />
+
         <activity
             android:name=".SampleActivity"
             android:exported="true"
