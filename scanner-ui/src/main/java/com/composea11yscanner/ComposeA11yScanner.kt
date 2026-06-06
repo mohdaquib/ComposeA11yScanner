@@ -256,6 +256,11 @@ private fun ScannerOverlayContent(
     DisposableEffect(Unit) { onDispose { controller.stopScan() } }
 
     LaunchedEffect(config) {
+        if (!config.autoScan) {
+            controller.stopScan()
+            return@LaunchedEffect
+        }
+
         controller.configure(config).startScan().collect { state ->
             scannerState = state
             if (state is ScannerState.Scanning) selectedIssue = null
