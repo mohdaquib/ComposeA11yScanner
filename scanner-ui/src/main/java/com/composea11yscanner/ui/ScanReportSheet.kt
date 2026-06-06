@@ -1,5 +1,6 @@
 package com.composea11yscanner.ui
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -18,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -36,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,6 +49,7 @@ import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
+import com.composea11yscanner.export.ScanResultExporter
 import java.util.Locale
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,6 +104,7 @@ fun ScanReportSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var activeFilter by remember { mutableStateOf<A11ySeverity?>(null) }
     var selectedIssue by remember { mutableStateOf<A11yIssue?>(null) }
@@ -121,6 +127,18 @@ fun ScanReportSheet(
             LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
                 item {
                     ReportScoreHeader(result = result)
+                    ExportReportButton(
+                        onClick = {
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/markdown"
+                                putExtra(Intent.EXTRA_SUBJECT, "Compose Accessibility Scan Report")
+                                putExtra(Intent.EXTRA_TEXT, ScanResultExporter.exportToMarkdown(result))
+                            }
+                            context.startActivity(
+                                Intent.createChooser(sendIntent, "Export Report"),
+                            )
+                        },
+                    )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
 
@@ -226,6 +244,24 @@ private fun ReportScoreHeader(result: ScanResult) {
                 color = result.overallScore.toScoreColor(),
             )
         }
+    }
+}
+
+@Composable
+private fun ExportReportButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Share,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = "Export Report",
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
