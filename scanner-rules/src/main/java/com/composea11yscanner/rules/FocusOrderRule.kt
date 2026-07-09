@@ -24,8 +24,7 @@ class FocusOrderRule(
     private val jumpThresholdPx: Int = (jumpThresholdDp * screenDensity).roundToInt()
 
     override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> =
-        nodes
-            .filter { it.isFocusable }
+        effectiveFocusNodes(nodes)
             .zipWithNext { prev, curr ->
                 val jumpedUpward = curr.bounds.top < prev.bounds.top - jumpThresholdPx
                 if (!jumpedUpward) return@zipWithNext null
@@ -43,4 +42,25 @@ class FocusOrderRule(
                 )
             }
             .filterNotNull()
+
+    private fun effectiveFocusNodes(nodes: List<A11yNode>): List<A11yNode> {
+        val result = mutableListOf<A11yNode>()
+
+        nodes
+            .filter { it.isFocusable && !it.isMergedDescendant }
+            .forEach { node ->
+                val hasFocusableAncestor = result.any { ancestor ->
+                    ancestor.depth < node.depth && ancestor.bounds.contains(node.bounds)
+                }
+                if (!hasFocusableAncestor) result += node
+            }
+
+        return result
+    }
+
+    private fun com.composea11yscanner.core.model.Rect.contains(other: com.composea11yscanner.core.model.Rect): Boolean =
+        left <= other.left &&
+            top <= other.top &&
+            right >= other.right &&
+            bottom >= other.bottom
 }

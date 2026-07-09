@@ -14,6 +14,7 @@ class ClickableRoleRule : BaseA11yRule() {
     override val wcagReference = "WCAG 4.1.2 Name, Role, Value (Level A)"
 
     override fun check(node: A11yNode): A11yIssue? {
+        if (node.isMergedDescendant) return null
         if (!node.isTouchTarget) return null
 
         val missingRole = node.role == null

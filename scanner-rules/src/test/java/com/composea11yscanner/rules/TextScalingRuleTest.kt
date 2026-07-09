@@ -30,7 +30,7 @@ class TextScalingRuleTest {
     @Test
     fun `text node with sufficient room in parent passes`() {
         // scaledHeight = 100 * 1.3 = 130 < parent.bottom 200 → no overflow
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 200))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 200), isTouchTarget = true)
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 100))
         assertTrue(rule.evaluateAll(listOf(parent, text)).isEmpty())
     }
@@ -38,15 +38,27 @@ class TextScalingRuleTest {
     @Test
     fun `scaled height landing exactly on parent bottom passes`() {
         // 80 * 1.3 = 104.0; scaledBottom = 0 + 104 = 104 == parent.bottom 104 → overflowPx = 0
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 104))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 104), isTouchTarget = true)
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 80))
         assertTrue(rule.evaluateAll(listOf(parent, text)).isEmpty())
     }
 
     @Test
     fun `text node with zero height never overflows`() {
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 0))
+        assertTrue(rule.evaluateAll(listOf(parent, text)).isEmpty())
+    }
+
+    @Test
+    fun `merged descendant text node is skipped`() {
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
+        val text = createNode(
+            composableName = "Text",
+            depth = 1,
+            bounds = Rect(0, 0, 200, 80),
+            isMergedDescendant = true,
+        )
         assertTrue(rule.evaluateAll(listOf(parent, text)).isEmpty())
     }
 
@@ -55,14 +67,14 @@ class TextScalingRuleTest {
     @Test
     fun `text node that overflows parent at 1_3x scale fails`() {
         // scaledHeight = 80 * 1.3 = 104; scaledBottom = 104 > parent.bottom 100 → overflow 4px
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 80))
         assertEquals(1, rule.evaluateAll(listOf(parent, text)).size)
     }
 
     @Test
     fun `BasicText composable name is recognised`() {
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
         val text = createNode(composableName = "BasicText", depth = 1, bounds = Rect(0, 0, 200, 80))
         assertEquals(1, rule.evaluateAll(listOf(parent, text)).size)
     }
@@ -73,7 +85,7 @@ class TextScalingRuleTest {
     fun `tightest parent is selected when multiple candidates at depth minus 1`() {
         // tightParent area=20000 vs looseParent area=160000; tightParent is chosen
         // tightParent.bottom=100 < scaledBottom=104 → overflow flagged
-        val tightParent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100))
+        val tightParent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
         val looseParent = createNode(depth = 0, bounds = Rect(0, 0, 400, 400))
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 80))
         assertEquals(1, rule.evaluateAll(listOf(tightParent, looseParent, text)).size)
@@ -83,14 +95,14 @@ class TextScalingRuleTest {
     fun `custom scale factor changes overflow threshold`() {
         // At 2.0x: scaledHeight = 60 * 2 = 120 > parent.bottom 100 → overflow
         val rule2x = TextScalingRule(screenDensity = 1f, scaleFactor = 2.0f)
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 60))
         assertEquals(1, rule2x.evaluateAll(listOf(parent, text)).size)
     }
 
     @Test
     fun `issue message contains original and scaled height in dp`() {
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 80))
         val issue = rule.evaluateAll(listOf(parent, text)).first()
         assertTrue(issue.message.contains("80dp"))   // original
@@ -104,7 +116,7 @@ class TextScalingRuleTest {
 
     @Test
     fun `issue carries correct rule metadata`() {
-        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100))
+        val parent = createNode(depth = 0, bounds = Rect(0, 0, 200, 100), isTouchTarget = true)
         val text = createNode(composableName = "Text", depth = 1, bounds = Rect(0, 0, 200, 80))
         val issue = rule.evaluateAll(listOf(parent, text)).first()
         assertEquals("text-scaling", issue.ruleId)

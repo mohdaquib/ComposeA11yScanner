@@ -22,9 +22,13 @@ class TextScalingRule(
 
     override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> =
         nodes
-            .filter { it.composableName.contains("Text", ignoreCase = true) }
+            .filter {
+                it.composableName.contains("Text", ignoreCase = true) &&
+                    !it.isMergedDescendant
+            }
             .mapNotNull { textNode ->
                 val parent = findParent(textNode, nodes) ?: return@mapNotNull null
+                if (!parent.isTouchTarget) return@mapNotNull null
 
                 val scaledHeight = textNode.bounds.height * scaleFactor
                 val overflowPx = (textNode.bounds.top + scaledHeight) - parent.bounds.bottom

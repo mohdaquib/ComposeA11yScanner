@@ -1,7 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.hilt)
-    alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.android)
 }
 
@@ -30,10 +28,14 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(platform(libs.androidx.compose.bom))

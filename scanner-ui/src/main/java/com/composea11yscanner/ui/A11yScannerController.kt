@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Public SDK entry point for running accessibility scans.
@@ -116,10 +117,18 @@ class A11yScannerController(
         )
 
         scanJob = scope.launch {
-            engine.scan(nodeProvider()).collect { _state.emit(it) }
+            val nodes = withContext(Dispatchers.Main.immediate) {
+                nodeProvider()
+            }
+            engine.scan(nodes).collect { _state.emit(it) }
         }
 
         return _state.asSharedFlow()
+    }
+
+    fun clearState() {
+        stopScan()
+        _state.tryEmit(ScannerState.Idle)
     }
 
     /** Cancels the current scan if one is running. The [Flow] returned by [startScan] stops emitting. */

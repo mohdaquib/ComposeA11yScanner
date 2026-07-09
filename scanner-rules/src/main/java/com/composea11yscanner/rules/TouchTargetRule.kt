@@ -14,6 +14,7 @@ class TouchTargetRule(
     override val wcagReference = "WCAG 2.5.5 Target Size (Level AA)"
 
     override fun check(node: A11yNode): A11yIssue? {
+        if (node.isMergedDescendant) return null
         if (!node.isTouchTarget) return null
 
         val w = node.touchTargetSize.width

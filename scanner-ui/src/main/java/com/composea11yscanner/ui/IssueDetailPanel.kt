@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -52,6 +55,7 @@ import java.util.Locale
 private val ErrorChipColor = Color(0xFFD32F2F)
 private val WarningChipColor = Color(0xFFFFA000)
 private val InfoChipColor = Color(0xFF1976D2)
+private val IssueListMaxHeight = 480.dp
 
 private fun A11ySeverity.toChipColor(): Color = when (this) {
     A11ySeverity.Error -> ErrorChipColor
@@ -90,29 +94,57 @@ private fun String.toWcagUrl(): String {
 @Composable
 fun IssueDetailPanel(
     issue: A11yIssue?,
+    issues: List<A11yIssue> = issue?.let(::listOf).orEmpty(),
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val activeIssues = issues.ifEmpty { issue?.let(::listOf).orEmpty() }
+    val isVisible = activeIssues.isNotEmpty()
     // Keep the last non-null issue so the content stays visible during the exit slide.
-    var panelIssue by remember { mutableStateOf(issue) }
-    LaunchedEffect(issue) { if (issue != null) panelIssue = issue }
+    var panelIssues by remember { mutableStateOf(emptyList<A11yIssue>()) }
+    LaunchedEffect(activeIssues) {
+        if (activeIssues.isNotEmpty()) panelIssues = activeIssues
+    }
+    val displayIssues = activeIssues.ifEmpty { panelIssues }
 
     AnimatedVisibility(
-        visible = issue != null,
+        visible = isVisible,
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         modifier = modifier,
     ) {
-        panelIssue?.let { PanelContent(issue = it, onDismiss = onDismiss) }
+        if (displayIssues.isNotEmpty()) {
+            PanelContent(issues = displayIssues, onDismiss = onDismiss)
+        }
     }
 }
 
 @Composable
+fun IssueDetailPanel(
+    issues: List<A11yIssue>,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    IssueDetailPanel(
+        issue = issues.firstOrNull(),
+        issues = issues,
+        onDismiss = onDismiss,
+        modifier = modifier,
+    )
+}
+
+@Composable
 private fun PanelContent(
-    issue: A11yIssue,
+    issues: List<A11yIssue>,
     onDismiss: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
+    val primaryIssue = issues.first()
+    val panelTitle = if (issues.size == 1) {
+        primaryIssue.ruleName
+    } else {
+        "${issues.size} issues on ${primaryIssue.affectedNode.composableName}"
+    }
 
     Surface(
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
@@ -129,7 +161,7 @@ private fun PanelContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = issue.ruleName,
+                    text = panelTitle,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -141,37 +173,66 @@ private fun PanelContent(
                 }
             }
 
-            SeverityChip(
-                severity = issue.severity,
+            LazyColumn(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 4.dp, bottom = 16.dp),
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-            SectionBlock(
-                label = "Issue",
-                body = issue.message,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-            SectionBlock(
-                label = "How to fix",
-                body = issue.howToFix,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
-
-            issue.wcagReference?.let { ref ->
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                WcagLink(
-                    reference = ref,
-                    onClick = { uriHandler.openUri(ref.toWcagUrl()) },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                )
+                    .fillMaxWidth()
+                    .heightIn(max = IssueListMaxHeight),
+            ) {
+                itemsIndexed(
+                    items = issues,
+                    key = { index, issue -> "${issue.issueId}-$index" },
+                ) { index, issue ->
+                    if (index > 0) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    IssueBlock(
+                        issue = issue,
+                        onWcagClick = { ref -> uriHandler.openUri(ref.toWcagUrl()) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun IssueBlock(
+    issue: A11yIssue,
+    onWcagClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = issue.ruleName,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            SeverityChip(severity = issue.severity)
+        }
+
+        SectionBlock(
+            label = "Issue",
+            body = issue.message,
+        )
+
+        SectionBlock(
+            label = "How to fix",
+            body = issue.howToFix,
+        )
+
+        issue.wcagReference?.let { ref ->
+            WcagLink(
+                reference = ref,
+                onClick = { onWcagClick(ref) },
+            )
         }
     }
 }
@@ -304,6 +365,39 @@ private fun IssueDetailPanelNoWcagPreview() {
                 message = "Text does not scale with system font size.",
                 howToFix = "Use sp units for all text sizes.",
                 wcagReference = null,
+            ),
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun IssueDetailPanelMultipleIssuesPreview() {
+    MaterialTheme {
+        IssueDetailPanel(
+            issues = listOf(
+                previewIssue(
+                    severity = A11ySeverity.Error,
+                    ruleName = "Clickable Role",
+                    message = "Clickable element does not expose a button role.",
+                    howToFix = "Apply Modifier.clickable(role = Role.Button) for action controls.",
+                    wcagReference = "WCAG 4.1.2 Name, Role, Value (Level A)",
+                ),
+                previewIssue(
+                    severity = A11ySeverity.Error,
+                    ruleName = "Touch Target Size",
+                    message = "Touch target is 28x28dp. Minimum required is 48x48dp.",
+                    howToFix = "Apply Modifier.minimumInteractiveComponentSize() or add padding.",
+                    wcagReference = "WCAG 2.5.5 Target Size (Level AA)",
+                ),
+                previewIssue(
+                    severity = A11ySeverity.Warning,
+                    ruleName = "Missing Content Description",
+                    message = "Interactive element has no content description.",
+                    howToFix = "Add a meaningful contentDescription via semantics.",
+                    wcagReference = "WCAG 1.1.1 Non-text Content (Level A)",
+                ),
             ),
             onDismiss = {},
         )

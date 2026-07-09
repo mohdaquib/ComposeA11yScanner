@@ -34,6 +34,11 @@ class ClickableRoleRuleTest {
     }
 
     @Test
+    fun `touch target with TextField role passes`() {
+        assertNull(rule.evaluate(createNode(isTouchTarget = true, role = A11yRole.TextField)))
+    }
+
+    @Test
     fun `touch target with Image role and non-empty description passes`() {
         assertNull(
             rule.evaluate(
@@ -73,9 +78,8 @@ class ClickableRoleRuleTest {
     // --- edge cases ---
 
     @Test
-    fun `merged descendant that is a touch target with no role is still flagged`() {
-        // ClickableRoleRule does not exempt merged descendants — role is a per-node concern
-        assertNotNull(
+    fun `merged descendant that is a touch target with no role is skipped`() {
+        assertNull(
             rule.evaluate(createNode(isTouchTarget = true, role = null, isMergedDescendant = true))
         )
     }

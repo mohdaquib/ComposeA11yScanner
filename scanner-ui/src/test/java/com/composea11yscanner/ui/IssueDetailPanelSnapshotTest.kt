@@ -67,4 +67,41 @@ class IssueDetailPanelSnapshotTest {
             }
         }
     }
+
+    @Test
+    fun multipleIssues_showScrollableList() {
+        paparazzi.snapshot {
+            MaterialTheme {
+                IssueDetailPanel(
+                    issues = listOf(
+                        issueFixture(
+                            severity = A11ySeverity.Error,
+                            issueId = "clickable-role",
+                            ruleName = "Clickable Role",
+                            message = "Clickable element does not expose a button role.",
+                            howToFix = "Apply Modifier.clickable(role = Role.Button) for action controls.",
+                            wcagReference = "WCAG 4.1.2 Name, Role, Value (Level A)",
+                        ),
+                        issueFixture(
+                            severity = A11ySeverity.Error,
+                            issueId = "touch-target-size",
+                            ruleName = "Touch Target Size",
+                            message = "Touch target is 28x28dp. Minimum required is 48x48dp.",
+                            howToFix = "Apply Modifier.minimumInteractiveComponentSize() or add padding.",
+                            wcagReference = "WCAG 2.5.5 Target Size (Level AA)",
+                        ),
+                        issueFixture(
+                            severity = A11ySeverity.Warning,
+                            issueId = "missing-content-description",
+                            ruleName = "Missing Content Description",
+                            message = "Interactive element has no content description.",
+                            howToFix = "Add a meaningful contentDescription via semantics.",
+                            wcagReference = "WCAG 1.1.1 Non-text Content (Level A)",
+                        ),
+                    ),
+                    onDismiss = {},
+                )
+            }
+        }
+    }
 }

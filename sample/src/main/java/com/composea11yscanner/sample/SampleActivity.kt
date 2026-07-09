@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +45,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.platform.AbstractComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.semantics.SemanticsOwner
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
@@ -57,9 +64,7 @@ import com.composea11yscanner.triggers.scanOnShake
 import com.composea11yscanner.ui.A11yNodeExtractor
 import com.composea11yscanner.ui.A11yScannerController
 import com.composea11yscanner.ui.A11yScannerScaffold
-import dagger.hilt.android.AndroidEntryPoint
 
-@AndroidEntryPoint
 class SampleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,6 +81,9 @@ class SampleActivity : ComponentActivity() {
 fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
     val activity = LocalContext.current as? ComponentActivity
     var selectedScreen by remember { mutableIntStateOf(0) }
+    var viewingFixed by remember { mutableStateOf(false) }
+    var scanScrollY by remember { mutableIntStateOf(0) }
+    val scrollState = rememberScrollState()
     val screens = listOf("Login", "Feed", "Form")
     val scannerController = remember(activity) {
         A11yScannerController(
@@ -83,24 +91,40 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
             screenDensity = activity?.resources?.displayMetrics?.density ?: 1f,
         )
     }
-    val scannerConfig = remember(selectedScreen) {
+    val scannerConfig = remember(selectedScreen, viewingFixed) {
         ScannerConfig(
             enabledRules = ScannerRules.allRuleIds().toSet(),
-            autoScan = selectedScreen == 0,
+            autoScan = false,
         )
     }
-    scanOnShake(onScanRequested = { scannerController.startScan() })
+    fun startSampleScan() {
+        scanScrollY = scrollState.value
+        scannerController.startScan()
+    }
+
+    LaunchedEffect(selectedScreen, viewingFixed) {
+        scanScrollY = scrollState.value
+        scannerController.clearState()
+    }
+
+    scanOnShake(onScanRequested = { startSampleScan() })
 
     A11yScannerScaffold(
         scannerController = scannerController,
         config = scannerConfig,
         modifier = modifier.fillMaxSize(),
+        issueOffsetY = scanScrollY - scrollState.value,
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {
-                FloatingActionButton(onClick = { scannerController.startScan() }) {
-                    Text("Scan")
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FloatingActionButton(onClick = { scannerController.clearState() }) {
+                        Text("Clear")
+                    }
+                    FloatingActionButton(onClick = { startSampleScan() }) {
+                        Text("Scan")
+                    }
                 }
             },
         ) { innerPadding ->
@@ -108,7 +132,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .padding(innerPadding)
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -119,7 +143,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Login scans automatically. Use the FAB or shake on any screen.",
+                        text = "Use Scan or shake to scan. Use Clear to remove highlights.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -128,7 +152,10 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     screens.forEachIndexed { index, label ->
                         Button(
-                            onClick = { selectedScreen = index },
+                            onClick = {
+                                selectedScreen = index
+                                viewingFixed = false
+                            },
                             enabled = selectedScreen != index,
                         ) {
                             Text(label)
@@ -136,10 +163,20 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
                     }
                 }
 
-                when (selectedScreen) {
-                    0 -> BrokenLoginScreen()
-                    1 -> BrokenFeedScreen()
-                    else -> BrokenFormScreen()
+                Box(modifier = Modifier.semantics { testTag = BrokenSampleContentTag }) {
+                    if (viewingFixed) {
+                        when (selectedScreen) {
+                            0 -> FixedLoginScreen(onViewBroken = { viewingFixed = false })
+                            1 -> FixedFeedScreen(onViewBroken = { viewingFixed = false })
+                            else -> FixedFormScreen(onViewBroken = { viewingFixed = false })
+                        }
+                    } else {
+                        when (selectedScreen) {
+                            0 -> BrokenLoginScreen(onViewFixed = { viewingFixed = true })
+                            1 -> BrokenFeedScreen(onViewFixed = { viewingFixed = true })
+                            else -> BrokenFormScreen(onViewFixed = { viewingFixed = true })
+                        }
+                    }
                 }
             }
         }
@@ -147,7 +184,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun BrokenLoginScreen() {
+private fun BrokenLoginScreen(onViewFixed: () -> Unit) {
     BrokenScreenCard(
         title = "Screen 1: Broken Login",
         subtitle = "Missing content descriptions and small touch targets",
@@ -197,11 +234,14 @@ private fun BrokenLoginScreen() {
                 color = Color(0xFF1565C0),
             )
         }
+        Button(onClick = onViewFixed, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("View Fixed Version")
+        }
     }
 }
 
 @Composable
-private fun BrokenFeedScreen() {
+private fun BrokenFeedScreen(onViewFixed: () -> Unit) {
     BrokenScreenCard(
         title = "Screen 2: Broken Feed",
         subtitle = "Poor contrast text over images and duplicate descriptions",
@@ -221,11 +261,14 @@ private fun BrokenFeedScreen() {
             DuplicateAction("Save", "Save item")
             DuplicateAction("Bookmark", "Save item")
         }
+        Button(onClick = onViewFixed, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("View Fixed Version")
+        }
     }
 }
 
 @Composable
-private fun BrokenFormScreen() {
+private fun BrokenFormScreen(onViewFixed: () -> Unit) {
     BrokenScreenCard(
         title = "Screen 3: Broken Form",
         subtitle = "Clickable elements lack roles and source order breaks focus flow",
@@ -264,6 +307,143 @@ private fun BrokenFormScreen() {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FormAction("Monthly", Color(0xFF455A64), Modifier.weight(1f))
             FormAction("Yearly", Color(0xFF455A64), Modifier.weight(1f))
+        }
+        Button(onClick = onViewFixed, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("View Fixed Version")
+        }
+    }
+}
+
+@Composable
+fun FixedLoginScreen(onViewBroken: (() -> Unit)? = null) {
+    BrokenScreenCard(
+        title = "Fixed Login",
+        subtitle = "Described controls with touch targets at least 48dp",
+    ) {
+        var email by remember { mutableStateOf("") }
+        var password by remember { mutableStateOf("") }
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FixedIconAction("?", "Open login help", Color(0xFF006D77))
+            FixedIconAction("!", "Show login requirements", Color(0xFFE29578))
+            FixedIconAction("x", "Dismiss login form", Color(0xFF8D99AE))
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(width = 56.dp, height = 48.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF2A9D8F))
+                    .semantics { contentDescription = "Sign in" }
+                    .clickable(
+                        role = Role.Button,
+                        onClick = {},
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Go", color = Color.White)
+            }
+            Box(
+                modifier = Modifier
+                    .size(width = 144.dp, height = 48.dp)
+                    .semantics { contentDescription = "Reset password" }
+                    .clickable(
+                        role = Role.Button,
+                        onClick = {},
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Forgot password", color = Color(0xFF1565C0))
+            }
+        }
+        onViewBroken?.let {
+            Button(
+                onClick = it,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+            ) {
+                Text("View Broken Version")
+            }
+        }
+    }
+}
+
+@Composable
+fun FixedFeedScreen(onViewBroken: (() -> Unit)? = null) {
+    BrokenScreenCard(
+        title = "Fixed Feed",
+        subtitle = "Readable captions and unique descriptions",
+    ) {
+        FixedFeedItem(
+            imageColor = Color(0xFF607D8B),
+            title = "Morning trail update",
+            description = "Open morning trail story",
+        )
+        FixedFeedItem(
+            imageColor = Color(0xFF546E7A),
+            title = "City lights tonight",
+            description = "Open city lights story",
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FixedLabeledAction("Save", "Save feed item")
+            FixedLabeledAction("Bookmark", "Bookmark feed item")
+        }
+        onViewBroken?.let {
+            Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("View Broken Version")
+            }
+        }
+    }
+}
+
+@Composable
+fun FixedFormScreen(onViewBroken: (() -> Unit)? = null) {
+    BrokenScreenCard(
+        title = "Fixed Form",
+        subtitle = "Button roles and top-to-bottom focus order",
+    ) {
+        Text("Preference form", style = MaterialTheme.typography.titleMedium)
+        Button(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("Choose plan")
+        }
+        Button(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("Reset fields")
+        }
+        Button(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("Submit preferences")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                Text("Monthly")
+            }
+            Button(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                Text("Yearly")
+            }
+        }
+        onViewBroken?.let {
+            Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("View Broken Version")
+            }
         }
     }
 }
@@ -368,6 +548,72 @@ private fun FormAction(
     }
 }
 
+@Composable
+private fun FixedIconAction(
+    label: String,
+    description: String,
+    color: Color,
+) {
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .background(color, RoundedCornerShape(8.dp))
+            .semantics { contentDescription = description }
+            .clickable(
+                role = Role.Button,
+                onClick = {},
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = Color.White, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun FixedFeedItem(
+    imageColor: Color,
+    title: String,
+    description: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = description }
+            .clickable(
+                role = Role.Button,
+                onClick = {},
+            ),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Image(
+            painter = ColorPainter(imageColor),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clip(RoundedCornerShape(8.dp)),
+        )
+        Text(title, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@Composable
+private fun FixedLabeledAction(label: String, description: String) {
+    Box(
+        modifier = Modifier
+            .size(width = 132.dp, height = 56.dp)
+            .background(Color(0xFF283593), RoundedCornerShape(8.dp))
+            .semantics { contentDescription = description }
+            .clickable(
+                role = Role.Button,
+                onClick = {},
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = Color.White)
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun BrokenAccessibilitySampleAppPreview() {
@@ -382,8 +628,21 @@ private fun ComponentActivity.extractBrokenSampleNodes(): List<A11yNode> =
             ?.findFirstAbstractComposeView()
             ?: return emptyList()
         val semanticsOwner = hostView.findSemanticsOwner() ?: return emptyList()
-        A11yNodeExtractor(Density(this)).extract(semanticsOwner)
+        val sampleRoot = semanticsOwner.unmergedRootSemanticsNode
+            .findNodeByTestTag(BrokenSampleContentTag)
+            ?: return emptyList()
+        A11yNodeExtractor(Density(this)).extract(sampleRoot)
     }.getOrDefault(emptyList())
+
+private const val BrokenSampleContentTag = "broken-sample-content"
+
+private fun SemanticsNode.findNodeByTestTag(tag: String): SemanticsNode? {
+    if (config.getOrNull(SemanticsProperties.TestTag) == tag) return this
+    children.forEach { child ->
+        child.findNodeByTestTag(tag)?.let { return it }
+    }
+    return null
+}
 
 private fun ViewGroup.findFirstAbstractComposeView(): AbstractComposeView? {
     for (i in 0 until childCount) {

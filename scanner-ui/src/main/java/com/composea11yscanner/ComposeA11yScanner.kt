@@ -264,14 +264,14 @@ private fun ScannerOverlayContent(
     config: ScannerConfig,
 ) {
     var scannerState by remember { mutableStateOf<ScannerState>(ScannerState.Idle) }
-    var selectedIssue by remember { mutableStateOf<A11yIssue?>(null) }
+    var selectedIssues by remember { mutableStateOf(emptyList<A11yIssue>()) }
 
     DisposableEffect(Unit) { onDispose { controller.stopScan() } }
 
     LaunchedEffect(Unit) {
         controller.stateFlow.collect { state ->
             scannerState = state
-            if (state is ScannerState.Scanning) selectedIssue = null
+            if (state is ScannerState.Scanning) selectedIssues = emptyList()
         }
     }
 
@@ -289,7 +289,7 @@ private fun ScannerOverlayContent(
     Box(modifier = Modifier.fillMaxSize()) {
         A11yIssueOverlay(
             scanResult = scanResult,
-            onIssueSelected = { selectedIssue = it },
+            onIssuesSelected = { selectedIssues = it },
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -308,8 +308,8 @@ private fun ScannerOverlayContent(
         }
 
         IssueDetailPanel(
-            issue = selectedIssue,
-            onDismiss = { selectedIssue = null },
+            issues = selectedIssues,
+            onDismiss = { selectedIssues = emptyList() },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }

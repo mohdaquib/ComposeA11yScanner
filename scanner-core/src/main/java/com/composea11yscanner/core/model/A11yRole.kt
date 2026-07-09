@@ -12,4 +12,5 @@ enum class A11yRole {
     RadioButton,
     Switch,
     Tab,
+    TextField,
 }

@@ -60,35 +60,55 @@ class A11yNodeExtractor(private val density: Density) {
 
     private fun SemanticsNode.toA11yNode(depth: Int, isMergedDescendant: Boolean): A11yNode {
         val composeRole = config.getOrNull(SemanticsProperties.Role)
-        val bounds = boundsInRoot.toCoreRect()
+        val isTextInput = config.contains(SemanticsActions.SetText)
+        val isTouchTarget = config.contains(SemanticsActions.OnClick)
+        val textLabel = if (isTouchTarget || composeRole != null || isTextInput) {
+            collectTextLabel()
+        } else {
+            null
+        }
+        val composeBounds = boundsInRoot
+        val bounds = composeBounds.toCoreRect()
 
         return A11yNode(
             nodeId = id.toString(),
-            composableName = resolveComposableName(composeRole),
+            composableName = resolveComposableName(
+                composeRole = composeRole,
+                isTouchTarget = isTouchTarget,
+                textLabel = textLabel,
+            ),
             bounds = bounds,
             contentDescription = config
                 .getOrNull(SemanticsProperties.ContentDescription)
-                ?.joinToString(separator = ", "),
-            isTouchTarget = config.contains(SemanticsActions.OnClick),
-            touchTargetSize = bounds.toDpSize(),
+                ?.joinToString(separator = ", ")
+                ?: textLabel,
+            isTouchTarget = isTouchTarget,
+            touchTargetSize = composeBounds.toDpSize(),
             textColor = null,               // not available via semantics
             backgroundColors = emptyList(), // not available via semantics
             isFocusable = config.contains(SemanticsActions.OnClick)
                 || config.contains(SemanticsActions.RequestFocus)
-                || composeRole != null,
+                || composeRole != null
+                || isTextInput,
             isMergedDescendant = isMergedDescendant,
             depth = depth,
-            role = composeRole?.toA11yRole(),
+            role = if (isTextInput) A11yRole.TextField else composeRole?.toA11yRole(),
         )
     }
 
     /**
      * Resolves a human-readable composable name.
-     * Priority: explicit TestTag → inferred from Role → inferred from Text property → "Unknown".
+     * Priority: explicit TestTag -> inferred from Role -> inferred from Text/click semantics -> "Unknown".
      */
-    private fun SemanticsNode.resolveComposableName(composeRole: Role?): String =
+    private fun SemanticsNode.resolveComposableName(
+        composeRole: Role?,
+        isTouchTarget: Boolean,
+        textLabel: String?,
+    ): String =
         config.getOrNull(SemanticsProperties.TestTag)
-            ?: when (composeRole) {
+            ?: if (config.contains(SemanticsActions.SetText)) {
+                "TextField"
+            } else when (composeRole) {
                 Role.Button -> "Button"
                 Role.Checkbox -> "Checkbox"
                 Role.Switch -> "Switch"
@@ -98,9 +118,32 @@ class A11yNodeExtractor(private val density: Density) {
                 Role.DropdownList -> "DropdownList"
                 else -> {
                     val text = config.getOrNull(SemanticsProperties.Text)
-                    if (!text.isNullOrEmpty()) "Text" else "Unknown"
+                    when {
+                        !text.isNullOrEmpty() -> "Text"
+                        isTouchTarget && !textLabel.isNullOrBlank() -> "ClickableText"
+                        isTouchTarget -> "Clickable"
+                        else -> "Unknown"
+                    }
                 }
             }
+
+    private fun SemanticsNode.collectTextLabel(): String? {
+        val labels = mutableListOf<String>()
+        collectTextLabelsInto(labels)
+        return labels
+            .joinToString(separator = " ")
+            .takeIf { it.isNotBlank() }
+    }
+
+    private fun SemanticsNode.collectTextLabelsInto(labels: MutableList<String>) {
+        config.getOrNull(SemanticsProperties.Text)
+            ?.mapNotNull { it.text.takeIf(String::isNotBlank) }
+            ?.let(labels::addAll)
+
+        children.forEach { child ->
+            child.collectTextLabelsInto(labels)
+        }
+    }
 
     private fun androidx.compose.ui.geometry.Rect.toCoreRect(): Rect = Rect(
         left = left.roundToInt(),
@@ -109,7 +152,7 @@ class A11yNodeExtractor(private val density: Density) {
         bottom = bottom.roundToInt(),
     )
 
-    private fun Rect.toDpSize(): DpSize = with(density) {
+    private fun androidx.compose.ui.geometry.Rect.toDpSize(): DpSize = with(density) {
         DpSize(
             width = width.toDp().value,
             height = height.toDp().value,
