@@ -52,6 +52,28 @@ class FocusOrderRuleTest {
         assertTrue(rule.evaluateAll(nodes).isEmpty())
     }
 
+    @Test
+    fun `merged descendant focusable nodes are skipped`() {
+        val nodes = listOf(
+            createNode(isFocusable = true, bounds = Rect(0, 100, 100, 150)),
+            createNode(
+                isFocusable = true,
+                bounds = Rect(0, 0, 100, 50),
+                isMergedDescendant = true,
+            ),
+        )
+        assertTrue(rule.evaluateAll(nodes).isEmpty())
+    }
+
+    @Test
+    fun `focusable child inside focusable parent is skipped`() {
+        val nodes = listOf(
+            createNode(isFocusable = true, depth = 0, bounds = Rect(0, 100, 200, 160)),
+            createNode(isFocusable = true, depth = 1, bounds = Rect(0, 110, 100, 140)),
+        )
+        assertTrue(rule.evaluateAll(nodes).isEmpty())
+    }
+
     // --- failing cases ---
 
     @Test

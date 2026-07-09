@@ -29,6 +29,19 @@ class TouchTargetRuleTest {
         assertNull(rule.evaluate(createNode(isTouchTarget = true, touchTargetSize = DpSize(56f, 64f))))
     }
 
+    @Test
+    fun `merged descendant touch target is skipped`() {
+        assertNull(
+            rule.evaluate(
+                createNode(
+                    isTouchTarget = true,
+                    touchTargetSize = DpSize(32f, 32f),
+                    isMergedDescendant = true,
+                )
+            )
+        )
+    }
+
     // --- failing cases ---
 
     @Test

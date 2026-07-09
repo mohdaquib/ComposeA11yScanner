@@ -2,6 +2,7 @@ package com.composea11yscanner.rules
 
 import com.composea11yscanner.core.model.A11ySeverity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

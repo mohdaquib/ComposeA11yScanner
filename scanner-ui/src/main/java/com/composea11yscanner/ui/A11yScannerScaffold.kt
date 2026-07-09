@@ -54,10 +54,11 @@ fun A11yScannerScaffold(
     scannerController: A11yScannerController,
     config: ScannerConfig,
     modifier: Modifier = Modifier,
+    issueOffsetY: Int = 0,
     content: @Composable () -> Unit,
 ) {
     var scannerState by remember { mutableStateOf<ScannerState>(ScannerState.Idle) }
-    var selectedIssue by remember { mutableStateOf<A11yIssue?>(null) }
+    var selectedIssues by remember { mutableStateOf(emptyList<A11yIssue>()) }
 
     // Cancel any in-flight scan when the scaffold leaves composition.
     DisposableEffect(Unit) {
@@ -67,7 +68,7 @@ fun A11yScannerScaffold(
     LaunchedEffect(Unit) {
         scannerController.stateFlow.collect { state ->
             scannerState = state
-            if (state is ScannerState.Scanning) selectedIssue = null
+            if (state is ScannerState.Scanning) selectedIssues = emptyList()
         }
     }
 
@@ -77,7 +78,7 @@ fun A11yScannerScaffold(
         if (config.autoScan) {
             scannerController.startScan()
         } else {
-            scannerController.stopScan()
+            scannerController.clearState()
         }
     }
 
@@ -90,8 +91,9 @@ fun A11yScannerScaffold(
         // ── 2. Issue highlight overlay ───────────────────────────────────────
         A11yIssueOverlay(
             scanResult = scanResult,
-            onIssueSelected = { selectedIssue = it },
+            onIssuesSelected = { selectedIssues = it },
             modifier = Modifier.fillMaxSize(),
+            issueOffsetY = issueOffsetY,
         )
 
         // ── 3. Summary bar — slides down from the top once scanning starts ───
@@ -111,8 +113,8 @@ fun A11yScannerScaffold(
 
         // ── 4. Issue detail panel — slides up when an overlay box is tapped ──
         IssueDetailPanel(
-            issue = selectedIssue,
-            onDismiss = { selectedIssue = null },
+            issues = selectedIssues,
+            onDismiss = { selectedIssues = emptyList() },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
