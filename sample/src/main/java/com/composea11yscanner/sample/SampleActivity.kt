@@ -23,16 +23,31 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -77,6 +92,7 @@ class SampleActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
     val activity = LocalContext.current as? ComponentActivity
@@ -85,9 +101,20 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
     var scanScrollY by remember { mutableIntStateOf(0) }
     val scrollState = rememberScrollState()
     val screens = listOf("Login", "Feed", "Form")
+    val screenSubtitles = listOf(
+        "Credentials and compact actions",
+        "Stories, captions, and repeated labels",
+        "Form controls and focus order",
+    )
+    val issueOffsetY by remember {
+        derivedStateOf { scanScrollY - scrollState.value }
+    }
     val scannerController = remember(activity) {
         A11yScannerController(
-            nodeProvider = { activity?.extractBrokenSampleNodes().orEmpty() },
+            nodeProvider = {
+                scanScrollY = scrollState.value
+                activity?.extractBrokenSampleNodes().orEmpty()
+            },
             screenDensity = activity?.resources?.displayMetrics?.density ?: 1f,
         )
     }
@@ -113,17 +140,59 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
         scannerController = scannerController,
         config = scannerConfig,
         modifier = modifier.fillMaxSize(),
-        issueOffsetY = scanScrollY - scrollState.value,
+        issueOffsetY = issueOffsetY,
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            floatingActionButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FloatingActionButton(onClick = { scannerController.clearState() }) {
-                        Text("Clear")
-                    }
-                    FloatingActionButton(onClick = { startSampleScan() }) {
-                        Text("Scan")
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Compose A11y Scanner",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = { scannerController.clearState() }) {
+                            Icon(
+                                imageVector = Icons.Filled.Clear,
+                                contentDescription = "Clear scan results",
+                            )
+                        }
+                        IconButton(onClick = { startSampleScan() }) {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = "Scan selected sample",
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+            },
+            bottomBar = {
+                NavigationBar {
+                    screens.forEachIndexed { index, label ->
+                        NavigationBarItem(
+                            selected = selectedScreen == index,
+                            onClick = {
+                                selectedScreen = index
+                                viewingFixed = false
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = if (selectedScreen == index) {
+                                        Icons.Filled.CheckCircle
+                                    } else {
+                                        Icons.Filled.Search
+                                    },
+                                    contentDescription = null,
+                                )
+                            },
+                            label = { Text(label) },
+                        )
                     }
                 }
             },
@@ -132,49 +201,100 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .padding(innerPadding)
                     .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                     .verticalScroll(scrollState)
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column {
-                    Text(
-                        text = "Broken A11y Samples",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Use Scan or shake to scan. Use Clear to remove highlights.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    screens.forEachIndexed { index, label ->
-                        Button(
-                            onClick = {
-                                selectedScreen = index
-                                viewingFixed = false
-                            },
-                            enabled = selectedScreen != index,
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(label)
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = screens[selectedScreen],
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = screenSubtitles[selectedScreen],
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            FilterChip(
+                                selected = !viewingFixed,
+                                onClick = { viewingFixed = false },
+                                label = { Text("Broken") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.Warning,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                },
+                            )
+                            FilterChip(
+                                selected = viewingFixed,
+                                onClick = { viewingFixed = true },
+                                label = { Text("Fixed") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                },
+                            )
                         }
                     }
                 }
 
-                Box(modifier = Modifier.semantics { testTag = BrokenSampleContentTag }) {
-                    if (viewingFixed) {
-                        when (selectedScreen) {
-                            0 -> FixedLoginScreen(onViewBroken = { viewingFixed = false })
-                            1 -> FixedFeedScreen(onViewBroken = { viewingFixed = false })
-                            else -> FixedFormScreen(onViewBroken = { viewingFixed = false })
-                        }
-                    } else {
-                        when (selectedScreen) {
-                            0 -> BrokenLoginScreen(onViewFixed = { viewingFixed = true })
-                            1 -> BrokenFeedScreen(onViewFixed = { viewingFixed = true })
-                            else -> BrokenFormScreen(onViewFixed = { viewingFixed = true })
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .semantics { testTag = BrokenSampleContentTag },
+                    )
+                    {
+                        if (viewingFixed) {
+                            when (selectedScreen) {
+                                0 -> FixedLoginScreen()
+                                1 -> FixedFeedScreen()
+                                else -> FixedFormScreen()
+                            }
+                        } else {
+                            when (selectedScreen) {
+                                0 -> BrokenLoginScreen()
+                                1 -> BrokenFeedScreen()
+                                else -> BrokenFormScreen()
+                            }
                         }
                     }
                 }
@@ -184,7 +304,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun BrokenLoginScreen(onViewFixed: () -> Unit) {
+private fun BrokenLoginScreen(onViewFixed: (() -> Unit)? = null) {
     BrokenScreenCard(
         title = "Screen 1: Broken Login",
         subtitle = "Missing content descriptions and small touch targets",
@@ -234,14 +354,16 @@ private fun BrokenLoginScreen(onViewFixed: () -> Unit) {
                 color = Color(0xFF1565C0),
             )
         }
-        Button(onClick = onViewFixed, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("View Fixed Version")
+        onViewFixed?.let {
+            Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("View Fixed Version")
+            }
         }
     }
 }
 
 @Composable
-private fun BrokenFeedScreen(onViewFixed: () -> Unit) {
+private fun BrokenFeedScreen(onViewFixed: (() -> Unit)? = null) {
     BrokenScreenCard(
         title = "Screen 2: Broken Feed",
         subtitle = "Poor contrast text over images and duplicate descriptions",
@@ -261,14 +383,16 @@ private fun BrokenFeedScreen(onViewFixed: () -> Unit) {
             DuplicateAction("Save", "Save item")
             DuplicateAction("Bookmark", "Save item")
         }
-        Button(onClick = onViewFixed, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("View Fixed Version")
+        onViewFixed?.let {
+            Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("View Fixed Version")
+            }
         }
     }
 }
 
 @Composable
-private fun BrokenFormScreen(onViewFixed: () -> Unit) {
+private fun BrokenFormScreen(onViewFixed: (() -> Unit)? = null) {
     BrokenScreenCard(
         title = "Screen 3: Broken Form",
         subtitle = "Clickable elements lack roles and source order breaks focus flow",
@@ -308,8 +432,10 @@ private fun BrokenFormScreen(onViewFixed: () -> Unit) {
             FormAction("Monthly", Color(0xFF455A64), Modifier.weight(1f))
             FormAction("Yearly", Color(0xFF455A64), Modifier.weight(1f))
         }
-        Button(onClick = onViewFixed, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("View Fixed Version")
+        onViewFixed?.let {
+            Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("View Fixed Version")
+            }
         }
     }
 }

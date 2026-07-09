@@ -67,8 +67,9 @@ class A11yNodeExtractor(private val density: Density) {
         } else {
             null
         }
-        val composeBounds = boundsInRoot
-        val bounds = composeBounds.toCoreRect()
+        val visualBounds = boundsInRoot
+        val touchTargetBounds = layoutBoundsInRoot()
+        val bounds = visualBounds.toCoreRect()
 
         return A11yNode(
             nodeId = id.toString(),
@@ -83,7 +84,7 @@ class A11yNodeExtractor(private val density: Density) {
                 ?.joinToString(separator = ", ")
                 ?: textLabel,
             isTouchTarget = isTouchTarget,
-            touchTargetSize = composeBounds.toDpSize(),
+            touchTargetSize = touchTargetBounds.toDpSize(),
             textColor = null,               // not available via semantics
             backgroundColors = emptyList(), // not available via semantics
             isFocusable = config.contains(SemanticsActions.OnClick)
@@ -143,6 +144,16 @@ class A11yNodeExtractor(private val density: Density) {
         children.forEach { child ->
             child.collectTextLabelsInto(labels)
         }
+    }
+
+    private fun SemanticsNode.layoutBoundsInRoot(): androidx.compose.ui.geometry.Rect {
+        val position = positionInRoot
+        return androidx.compose.ui.geometry.Rect(
+            left = position.x,
+            top = position.y,
+            right = position.x + layoutInfo.width,
+            bottom = position.y + layoutInfo.height,
+        )
     }
 
     private fun androidx.compose.ui.geometry.Rect.toCoreRect(): Rect = Rect(
