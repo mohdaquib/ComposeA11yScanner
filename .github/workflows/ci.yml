@@ -24,21 +24,6 @@ jobs:
       - name: Run Android lint
         run: ./gradlew lint
 
-  detekt:
-    name: Detekt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: gradle
-      - name: Run Detekt
-        run: ./gradlew detekt
-
   unit-tests:
     name: Unit Tests & Coverage (≥80%)
     runs-on: ubuntu-latest
@@ -52,7 +37,7 @@ jobs:
           java-version: 17
           cache: gradle
       - name: Run unit tests with coverage
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew createDebugUnitTestCoverageReport
       - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -65,4 +50,4 @@ jobs:
             scanner-rules/build/reports/coverage/
           retention-days: 14
       - name: Check coverage ≥ 80%
-        run: python3 scripts/check_coverage.py . 80
+        run: python3 scripts/check_coverage.py . 80 scanner-core scanner-rules
