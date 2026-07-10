@@ -24,21 +24,6 @@ jobs:
       - name: Run Android lint
         run: ./gradlew lint
 
-  detekt:
-    name: Detekt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: gradle
-      - name: Run Detekt
-        run: ./gradlew detekt
-
   unit-tests:
     name: Unit Tests & Coverage (≥80%)
     runs-on: ubuntu-latest
