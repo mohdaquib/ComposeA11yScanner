@@ -20,6 +20,10 @@ import com.composea11yscanner.ComposeA11yScanner
  *
  * Kept as a consumer-side convenience extension in `:scanner-ui`; scanner core has no
  * dependency on gestures, sensors, Android framework callbacks, or Compose modifiers.
+ *
+ * @param enabled Whether long-press scanning is active.
+ * @param onScanRequested Callback invoked after a long press.
+ * @return Modifier with the long-press scanner trigger installed.
  */
 fun Modifier.scanOnLongPress(
     enabled: Boolean = true,
@@ -36,6 +40,11 @@ fun Modifier.scanOnLongPress(
  *
  * Call from a composable screen that wants shake-triggered scans. If no accelerometer is
  * present, this quietly does nothing.
+ *
+ * @param enabled Whether shake scanning is active.
+ * @param shakeThresholdG Required acceleration force in Gs.
+ * @param minTriggerIntervalMillis Minimum time between scan triggers.
+ * @param onScanRequested Callback invoked after a qualifying shake.
  */
 @Composable
 fun scanOnShake(

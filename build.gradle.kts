@@ -10,7 +10,7 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.detekt)
-    alias(libs.plugins.dokka) apply false
+    alias(libs.plugins.dokka)
     alias(libs.plugins.dokka.javadoc) apply false
 }
 
@@ -66,6 +66,9 @@ subprojects {
 
 dependencies {
     detektPlugins(libs.detekt.formatting)
+    dokka(project(":scanner-core"))
+    dokka(project(":scanner-rules"))
+    dokka(project(":scanner-ui"))
 }
 
 detekt {

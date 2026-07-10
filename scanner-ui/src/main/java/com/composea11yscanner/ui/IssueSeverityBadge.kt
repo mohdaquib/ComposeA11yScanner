@@ -56,6 +56,13 @@ private fun A11ySeverity.label(): String = when (this) {
     A11ySeverity.Info -> "Info"
 }
 
+/**
+ * Compact severity badge used in scan summaries and overlays.
+ *
+ * @param severity Severity represented by the badge color and icon.
+ * @param count Number of issues represented by the badge.
+ * @param modifier Modifier applied to the badge row.
+ */
 @Composable
 fun IssueSeverityBadge(
     severity: A11ySeverity,

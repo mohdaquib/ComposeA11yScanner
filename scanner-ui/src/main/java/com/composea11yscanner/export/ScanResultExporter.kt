@@ -8,8 +8,15 @@ import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
 import java.util.Locale
 
+/** Exports scan results to text formats suitable for sharing or CI artifacts. */
 object ScanResultExporter {
 
+    /**
+     * Converts [result] to a JSON string.
+     *
+     * @param result Result to export.
+     * @return JSON representation of the result.
+     */
     fun exportToJson(result: ScanResult): String = buildString {
         appendLine("{")
         appendJsonField("scanId", result.scanId, indent = 2, trailingComma = true)
@@ -40,6 +47,12 @@ object ScanResultExporter {
         append("}")
     }
 
+    /**
+     * Converts [result] to a Markdown report.
+     *
+     * @param result Result to export.
+     * @return Markdown table and summary text.
+     */
     fun exportToMarkdown(result: ScanResult): String = buildString {
         appendLine("# Compose Accessibility Scan Report")
         appendLine()

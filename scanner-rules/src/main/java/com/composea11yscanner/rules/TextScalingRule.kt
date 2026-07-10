@@ -7,19 +7,29 @@ import com.composea11yscanner.core.rule.BaseScanRule
 import kotlin.math.roundToInt
 
 /**
+ * Flags text that may clip when simulated at a larger font scale.
+ *
  * @param screenDensity Display density from DisplayMetrics.density.
- * @param scaleFactor   Font scale to simulate (default 1.3×).
+ * @param scaleFactor Font scale to simulate (default 1.3x).
  */
 class TextScalingRule(
     private val screenDensity: Float,
     private val scaleFactor: Float = 1.3f,
 ) : BaseScanRule() {
 
+    /** Stable id for the text scaling rule. */
     override val ruleId = "text-scaling"
+
+    /** Human-readable rule name. */
     override val ruleName = "Text Scaling"
+
+    /** Severity assigned to possible text clipping. */
     override val severity = A11ySeverity.Warning
+
+    /** WCAG criterion associated with resized text. */
     override val wcagReference = "WCAG 1.4.4 Resize Text (Level AA)"
 
+    /** Evaluates text nodes against their parent bounds at the configured scale factor. */
     override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> =
         nodes
             .filter {
@@ -40,7 +50,7 @@ class TextScalingRule(
 
                 issue(
                     node = textNode,
-                    message = "'${textNode.composableName}' may clip at ${scaleFactor}× font scale: " +
+                    message = "'${textNode.composableName}' may clip at ${scaleFactor}x font scale: " +
                         "height grows from ${originalDp}dp to ${scaledDp}dp, " +
                         "overflowing its container by ${overflowDp}dp.",
                     howToFix = "Remove fixed heights from the parent container, use " +

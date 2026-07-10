@@ -91,6 +91,8 @@ object ComposeA11yScanner {
      *
      * Must be called on the main thread, typically in `Activity.onCreate` after `setContent`.
      *
+     * @param activity Activity that should receive the scanner overlay.
+     * @param config Scanner configuration applied to this install.
      * @throws IllegalStateException in non-debug builds.
      */
     fun install(
@@ -131,6 +133,7 @@ object ComposeA11yScanner {
      *
      * Must be called on the main thread.
      *
+     * @param activity Activity whose scanner overlay should be removed.
      * @throws IllegalStateException in non-debug builds.
      */
     fun uninstall(activity: ComponentActivity) {
@@ -255,7 +258,8 @@ object ComposeA11yScanner {
 
 /**
  * Internal composable rendered inside the overlay [ComposeView] that [ComposeA11yScanner.install]
- * adds on top of the activity's content. Mirrors the layer structure of [A11yScannerScaffold]
+ * adds on top of the activity's content. Mirrors the layer structure of
+ * [com.composea11yscanner.ui.A11yScannerScaffold]
  * without re-wrapping the host content.
  */
 @Composable

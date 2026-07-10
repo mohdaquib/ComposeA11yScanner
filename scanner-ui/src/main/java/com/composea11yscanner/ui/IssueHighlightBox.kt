@@ -31,6 +31,13 @@ private fun A11ySeverity.toBorderColor(): Color = when (this) {
     A11ySeverity.Info -> InfoBorderColor
 }
 
+/**
+ * Draws a tappable outline over the bounds of an accessibility issue.
+ *
+ * @param issue Issue whose affected node bounds determine the highlight size.
+ * @param onIssueSelected Callback invoked when the highlight is tapped.
+ * @param modifier Modifier applied to the highlight spacer.
+ */
 @Composable
 fun IssueHighlightBox(
     issue: A11yIssue,

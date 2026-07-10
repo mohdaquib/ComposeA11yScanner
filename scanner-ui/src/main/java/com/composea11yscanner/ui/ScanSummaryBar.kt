@@ -74,6 +74,9 @@ private fun Float.toScoreColor(): Color = when {
  * Callers are responsible for showing/hiding the bar itself; this composable
  * renders content for [ScannerState.Scanning] and [ScannerState.Complete] and
  * nothing for [ScannerState.Idle] and [ScannerState.Error].
+ *
+ * @param state Scanner state to summarize.
+ * @param modifier Modifier applied to the summary bar.
  */
 @Composable
 fun ScanSummaryBar(

@@ -15,20 +15,34 @@ import com.composea11yscanner.core.model.Rect
  *     candidates, so a solid background yields a single-element list.
  *   - Text/foreground: single pixel at the node's geometric center.
  *
- * [Rect] coordinates must be root-relative (matching [SemanticsNode.boundsInRoot]).
+ * [Rect] coordinates must be root-relative, matching Compose semantics bounds.
  * [rootView] must be laid out with non-zero dimensions before calling [extractColors].
  *
  * Note: [drawToBitmap] captures a software copy of the entire view on every call.
  * When sampling multiple nodes, prefer creating the bitmap once externally and calling
  * [sampleEdges]/[sampleCenter] directly with the shared [Bitmap].
+ *
+ * @param rootView View whose rendered pixels should be sampled.
  */
 class ColorExtractor(private val rootView: View) {
 
+    /**
+     * Colors sampled from a node's rendered bounds.
+     *
+     * @property backgroundColors Distinct colors sampled along the node edges.
+     * @property textColor Color sampled at the center point, if within the bitmap.
+     */
     data class Result(
         val backgroundColors: List<Color>,
         val textColor: Color?,
     )
 
+    /**
+     * Captures [rootView] and samples colors inside [bounds].
+     *
+     * @param bounds Root-relative node bounds.
+     * @return Sampled colors for the node.
+     */
     fun extractColors(bounds: Rect): Result {
         if (bounds.isEmpty()) return Result(emptyList(), null)
         val bitmap = rootView.drawToBitmap()
@@ -42,6 +56,13 @@ class ColorExtractor(private val rootView: View) {
         }
     }
 
+    /**
+     * Samples corners and edge midpoints from [bounds] in [bitmap].
+     *
+     * @param bitmap Bitmap to sample.
+     * @param bounds Pixel bounds to sample.
+     * @return Distinct sampled colors.
+     */
     fun sampleEdges(bitmap: Bitmap, bounds: Rect): List<Color> {
         val l = bounds.left
         val t = bounds.top
@@ -64,6 +85,13 @@ class ColorExtractor(private val rootView: View) {
             .distinct()
     }
 
+    /**
+     * Samples the center pixel from [bounds] in [bitmap].
+     *
+     * @param bitmap Bitmap to sample.
+     * @param bounds Pixel bounds to sample.
+     * @return Center color, or null when outside the bitmap.
+     */
     fun sampleCenter(bitmap: Bitmap, bounds: Rect): Color? {
         val cx = (bounds.left + bounds.right) / 2
         val cy = (bounds.top + bounds.bottom) / 2
@@ -79,7 +107,7 @@ class ColorExtractor(private val rootView: View) {
 }
 
 /**
- * Converts an Android ARGB [ColorInt] to [Color] using Compose's Color.value packing:
+ * Converts an Android ARGB color int to [Color] using Compose's Color.value packing:
  *   value = (argb & 0xFFFFFFFFL) shl 32
  * This keeps the sRGB color space ID (0) in bits 0-5 as zero, matching [Color.Unspecified]'s
  * convention and making round-trips with Compose's Color(Int) constructor lossless.

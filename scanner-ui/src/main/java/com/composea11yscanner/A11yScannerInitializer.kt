@@ -21,6 +21,11 @@ import com.composea11yscanner.rules.ScannerRules
  */
 class A11yScannerInitializer : Initializer<Unit> {
 
+    /**
+     * Registers lifecycle callbacks that install [ComposeA11yScanner] for resumed activities.
+     *
+     * @param context Startup context supplied by AndroidX App Startup.
+     */
     override fun create(context: Context) {
         val appContext = context.applicationContext
         if (!appContext.isDebuggable()) return
@@ -48,6 +53,11 @@ class A11yScannerInitializer : Initializer<Unit> {
         )
     }
 
+    /**
+     * Returns other App Startup initializers that must run before this initializer.
+     *
+     * @return Empty list because the scanner has no initializer dependencies.
+     */
     override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()
 
     private fun Context.isDebuggable(): Boolean =

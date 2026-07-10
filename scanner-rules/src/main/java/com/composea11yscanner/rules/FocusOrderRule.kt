@@ -7,6 +7,8 @@ import com.composea11yscanner.core.rule.BaseScanRule
 import kotlin.math.roundToInt
 
 /**
+ * Flags focus traversal that jumps upward relative to visual top-to-bottom order.
+ *
  * @param screenDensity Display density from DisplayMetrics.density.
  *   Used to convert [jumpThresholdDp] to pixels for comparison against [A11yNode.bounds].
  * @param jumpThresholdDp Upward movement that triggers a violation (default 8dp).
@@ -16,13 +18,21 @@ class FocusOrderRule(
     private val jumpThresholdDp: Float = 8f,
 ) : BaseScanRule() {
 
+    /** Stable id for the focus order rule. */
     override val ruleId = "focus-order"
+
+    /** Human-readable rule name. */
     override val ruleName = "Focus Order"
+
+    /** Severity assigned to focus order jumps. */
     override val severity = A11ySeverity.Error
+
+    /** WCAG criterion associated with focus order. */
     override val wcagReference = "WCAG 2.4.3 Focus Order (Level A)"
 
     private val jumpThresholdPx: Int = (jumpThresholdDp * screenDensity).roundToInt()
 
+    /** Evaluates all focusable nodes in semantics order. */
     override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> =
         effectiveFocusNodes(nodes)
             .zipWithNext { prev, curr ->
