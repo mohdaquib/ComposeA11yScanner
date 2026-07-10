@@ -96,6 +96,10 @@ private fun Float.toScoreColor(): Color = when {
 /**
  * Full-screen report sheet. Pressing back/dismiss while a detail panel is open
  * closes the panel first; a second press dismisses the sheet.
+ *
+ * @param result Scan result displayed in the report.
+ * @param onDismiss Callback invoked when the sheet should close.
+ * @param modifier Modifier applied to the modal sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

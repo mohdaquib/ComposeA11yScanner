@@ -90,6 +90,18 @@ private fun String.toWcagUrl(): String {
 /**
  * Slides up from the bottom when [issue] becomes non-null; slides back down on dismissal.
  * Content is retained during the exit transition so the panel doesn't flash empty.
+ *
+ * @param issue Primary issue to display, or null to hide the panel.
+ * @param issues Issues associated with the selected node.
+ * @param onDismiss Callback invoked when the panel close action is tapped.
+ * @param modifier Modifier applied to the panel container.
+ */
+/**
+ * Convenience overload for showing one or more issues.
+ *
+ * @param issues Issues associated with the selected node.
+ * @param onDismiss Callback invoked when the panel close action is tapped.
+ * @param modifier Modifier applied to the panel container.
  */
 @Composable
 fun IssueDetailPanel(

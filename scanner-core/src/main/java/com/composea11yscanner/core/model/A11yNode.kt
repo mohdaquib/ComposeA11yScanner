@@ -1,5 +1,21 @@
 package com.composea11yscanner.core.model
 
+/**
+ * Normalized representation of one UI semantics node scanned by the accessibility rules.
+ *
+ * @property nodeId Stable id for grouping issues that belong to the same semantics node.
+ * @property composableName Best-effort composable or role name used in reports.
+ * @property bounds Pixel bounds relative to the scanned root.
+ * @property contentDescription Accessible label exposed by the node, if any.
+ * @property isTouchTarget True when the node exposes a click action.
+ * @property touchTargetSize Size used by touch target rules, expressed in dp.
+ * @property textColor Foreground text color when it can be extracted.
+ * @property backgroundColors Candidate background colors sampled behind the node.
+ * @property isFocusable True when the node can participate in focus traversal.
+ * @property isMergedDescendant True when the node is inside a parent that merges semantics.
+ * @property depth Depth in the semantics tree.
+ * @property role Accessibility role mapped from the platform semantics role, if any.
+ */
 data class A11yNode(
     val nodeId: String,
     val composableName: String,

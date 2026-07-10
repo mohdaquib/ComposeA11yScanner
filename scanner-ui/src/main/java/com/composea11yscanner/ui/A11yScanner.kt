@@ -20,11 +20,21 @@ class A11yScanner(
     private val rules: List<A11yRule>,
     private val density: Density,
 ) {
-    /** Scans from a semantics node (test or manual tree walk). */
+    /**
+     * Scans from a semantics node, typically in tests or manual tree walks.
+     *
+     * @param rootNode Root semantics node to scan.
+     * @return Completed scan result.
+     */
     fun scan(rootNode: SemanticsNode): ScanResult =
         buildResult(A11yNodeExtractor(density).extract(rootNode))
 
-    /** Scans the live Compose semantics tree via [SemanticsOwner]. */
+    /**
+     * Scans the live Compose semantics tree via [SemanticsOwner].
+     *
+     * @param owner Semantics owner for the Compose tree.
+     * @return Completed scan result.
+     */
     @OptIn(InternalComposeUiApi::class)
     fun scan(owner: SemanticsOwner): ScanResult =
         buildResult(A11yNodeExtractor(density).extract(owner))

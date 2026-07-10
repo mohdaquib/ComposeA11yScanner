@@ -6,13 +6,22 @@ import com.composea11yscanner.core.model.A11yRole
 import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.rule.BaseA11yRule
 
+/** Flags clickable nodes that do not expose an accessibility role. */
 class ClickableRoleRule : BaseA11yRule() {
 
+    /** Stable id for the clickable role rule. */
     override val ruleId = "clickable-role"
+
+    /** Human-readable rule name. */
     override val ruleName = "Clickable Role"
+
+    /** Severity assigned to missing roles. */
     override val severity = A11ySeverity.Error
+
+    /** WCAG criterion associated with name, role, and value. */
     override val wcagReference = "WCAG 4.1.2 Name, Role, Value (Level A)"
 
+    /** Evaluates a single node for role metadata. */
     override fun check(node: A11yNode): A11yIssue? {
         if (node.isMergedDescendant) return null
         if (!node.isTouchTarget) return null

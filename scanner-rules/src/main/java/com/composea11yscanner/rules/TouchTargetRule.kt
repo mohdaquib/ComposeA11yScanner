@@ -5,14 +5,27 @@ import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.rule.BaseA11yRule
 
+/**
+ * Flags clickable nodes whose measured touch target is smaller than the configured minimum.
+ *
+ * @param minTouchTargetDp Minimum accepted width and height in dp.
+ */
 class TouchTargetRule(
     private val minTouchTargetDp: Int = 48,
 ) : BaseA11yRule() {
+    /** Stable id for the touch target size rule. */
     override val ruleId = "touch-target-size"
+
+    /** Human-readable rule name. */
     override val ruleName = "Touch Target Size"
+
+    /** Severity assigned to undersized touch targets. */
     override val severity = A11ySeverity.Error
+
+    /** WCAG criterion associated with target size. */
     override val wcagReference = "WCAG 2.5.5 Target Size (Level AA)"
 
+    /** Evaluates a single node for touch target dimensions. */
     override fun check(node: A11yNode): A11yIssue? {
         if (node.isMergedDescendant) return null
         if (!node.isTouchTarget) return null

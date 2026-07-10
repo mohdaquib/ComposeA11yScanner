@@ -18,6 +18,18 @@ import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
 
+/**
+ * Draws issue highlights over affected nodes from a scan result.
+ *
+ * Issues are grouped by affected node id so tapping one highlight can show every issue
+ * associated with that node.
+ *
+ * @param scanResult Result whose issues should be highlighted, or null to hide overlays.
+ * @param onIssueSelected Backward-compatible callback for a single selected issue.
+ * @param onIssuesSelected Callback invoked with all issues for the tapped node.
+ * @param modifier Modifier applied to the overlay container.
+ * @param issueOffsetY Vertical offset applied to highlighted bounds, usually for scroll correction.
+ */
 @Composable
 fun A11yIssueOverlay(
     scanResult: ScanResult?,
