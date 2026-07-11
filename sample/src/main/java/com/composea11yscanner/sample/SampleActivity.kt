@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.ScannerConfig
 import com.composea11yscanner.rules.ScannerRules
+import com.composea11yscanner.sample.ui.theme.ScannerTheme
 import com.composea11yscanner.triggers.scanOnShake
 import com.composea11yscanner.ui.A11yNodeExtractor
 import com.composea11yscanner.ui.A11yScannerController
@@ -85,7 +86,7 @@ class SampleActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme {
+            ScannerTheme {
                 BrokenAccessibilitySampleApp()
             }
         }
@@ -743,7 +744,7 @@ private fun FixedLabeledAction(label: String, description: String) {
 @Preview(showBackground = true)
 @Composable
 fun BrokenAccessibilitySampleAppPreview() {
-    MaterialTheme {
+    ScannerTheme {
         BrokenAccessibilitySampleApp()
     }
 }

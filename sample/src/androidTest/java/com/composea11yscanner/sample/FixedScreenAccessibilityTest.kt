@@ -1,12 +1,12 @@
 package com.composea11yscanner.sample
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import com.composea11yscanner.core.model.ScannerConfig
 import com.composea11yscanner.rules.ScannerRules
+import com.composea11yscanner.sample.ui.theme.ScannerTheme
 import com.composea11yscanner.ui.A11yScanner
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -40,7 +40,7 @@ class FixedScreenAccessibilityTest {
 
     private fun assertNoScannerIssues(content: @Composable () -> Unit) {
         composeRule.setContent {
-            MaterialTheme {
+            ScannerTheme {
                 content()
             }
         }
