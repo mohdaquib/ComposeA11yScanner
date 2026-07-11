@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.platform.AbstractComposeView
@@ -69,6 +70,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -306,30 +309,103 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
 
 @Composable
 private fun BrokenLoginScreen(onViewFixed: (() -> Unit)? = null) {
-    BrokenScreenCard(
-        title = "Screen 1: Broken Login",
-        subtitle = "Missing content descriptions and small touch targets",
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF0D1117))
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        var email by remember { mutableStateOf("") }
-        var password by remember { mutableStateOf("") }
-
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            BankLogoMark()
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "SecureBank",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "Private client access",
+                    color = Color(0xFF8B949E),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TinyClickableLabel("?", Color(0xFF006D77))
-            TinyClickableLabel("!", Color(0xFFE29578))
-            TinyClickableLabel("x", Color(0xFF8D99AE))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Welcome back",
+                color = Color.White,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Sign in to view balances, transfers, and card activity.",
+                color = Color(0xFF8B949E),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                trailingIcon = {
+                    Text(
+                        text = if (passwordVisible) "Hide" else "Show",
+                        color = Color(0xFF6C63FF),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .size(width = 44.dp, height = 30.dp)
+                            .clickable { passwordVisible = !passwordVisible },
+                    )
+                },
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(Color(0xFF6C63FF), Color(0xFF00D4AA)),
+                    ),
+                )
+                .clickable { },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Sign In",
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
         }
 
         Row(
@@ -337,29 +413,96 @@ private fun BrokenLoginScreen(onViewFixed: (() -> Unit)? = null) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Text(
+                text = "Forgot password?",
+                color = Color(0xFF4DA6FF),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .size(width = 108.dp, height = 30.dp)
+                    .clickable { },
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TinyClickableLabel("?", Color(0xFF1C2B3A))
+                TinyClickableLabel("!", Color(0xFF2E2A1C))
+                TinyClickableLabel("x", Color(0xFF281C2E))
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF121826))
+                .padding(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Device trust",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Review this session",
+                        color = Color(0xFF8B949E),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF00D4AA))
+                        .clickable { },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Go", color = Color(0xFF0D1117), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        onViewFixed?.let {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF2A9D8F))
-                    .clickable { },
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1C1C28))
+                    .clickable { it() },
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Go", color = Color.White)
-            }
-            Text(
-                text = "Forgot password",
-                modifier = Modifier
-                    .size(width = 92.dp, height = 30.dp)
-                    .clickable { },
-                color = Color(0xFF1565C0),
-            )
-        }
-        onViewFixed?.let {
-            Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 Text("View Fixed Version")
             }
         }
+    }
+}
+
+@Composable
+private fun BankLogoMark() {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF6C63FF)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 24.dp, height = 10.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White.copy(alpha = 0.92f)),
+        )
+        Box(
+            modifier = Modifier
+                .size(width = 10.dp, height = 24.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White.copy(alpha = 0.72f)),
+        )
     }
 }
 
