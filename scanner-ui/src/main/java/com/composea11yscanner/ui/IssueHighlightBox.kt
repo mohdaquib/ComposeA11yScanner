@@ -7,7 +7,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
@@ -24,6 +26,8 @@ private val InfoBorderColor = Color(0xFF1976D2)
 
 private val BorderStrokeWidth = 2.dp
 private val BorderCornerRadius = 4.dp
+private val CornerAccentLength = 12.dp
+private val CornerAccentStrokeWidth = 3.dp
 
 private fun A11ySeverity.toBorderColor(): Color = when (this) {
     A11ySeverity.Error -> ErrorBorderColor
@@ -48,13 +52,55 @@ fun IssueHighlightBox(
             .size(width, height)
             .clickable { onIssueSelected(issue) }
             .drawBehind {
+                val strokeWidth = BorderStrokeWidth.toPx()
+                val cornerRadius = BorderCornerRadius.toPx()
+                val cornerAccentLength = CornerAccentLength.toPx()
+                val cornerAccentStrokeWidth = CornerAccentStrokeWidth.toPx()
+                val cornerInset = cornerAccentStrokeWidth / 2f
+
                 drawRoundRect(
                     color = borderColor,
-                    style = Stroke(width = BorderStrokeWidth.toPx()),
-                    cornerRadius = CornerRadius(BorderCornerRadius.toPx()),
+                    alpha = 0.08f,
+                    cornerRadius = CornerRadius(cornerRadius),
+                )
+                drawRoundRect(
+                    color = borderColor,
+                    alpha = 0.92f,
+                    style = Stroke(width = strokeWidth),
+                    cornerRadius = CornerRadius(cornerRadius),
+                )
+                drawCornerAccents(
+                    color = borderColor,
+                    length = cornerAccentLength,
+                    strokeWidth = cornerAccentStrokeWidth,
+                    inset = cornerInset,
                 )
             },
     )
+}
+
+private fun DrawScope.drawCornerAccents(
+    color: Color,
+    length: Float,
+    strokeWidth: Float,
+    inset: Float,
+) {
+    val left = inset
+    val top = inset
+    val right = size.width - inset
+    val bottom = size.height - inset
+
+    drawLine(color, Offset(left, top), Offset(left + length, top), strokeWidth)
+    drawLine(color, Offset(left, top), Offset(left, top + length), strokeWidth)
+
+    drawLine(color, Offset(right, top), Offset(right - length, top), strokeWidth)
+    drawLine(color, Offset(right, top), Offset(right, top + length), strokeWidth)
+
+    drawLine(color, Offset(left, bottom), Offset(left + length, bottom), strokeWidth)
+    drawLine(color, Offset(left, bottom), Offset(left, bottom - length), strokeWidth)
+
+    drawLine(color, Offset(right, bottom), Offset(right - length, bottom), strokeWidth)
+    drawLine(color, Offset(right, bottom), Offset(right, bottom - length), strokeWidth)
 }
 
 @Preview(showBackground = true)
