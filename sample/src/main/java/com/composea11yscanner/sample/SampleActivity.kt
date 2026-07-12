@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -77,6 +78,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.ScannerConfig
 import com.composea11yscanner.rules.ScannerRules
@@ -689,48 +691,138 @@ private fun FinancialNewsCard(
 @Composable
 private fun BrokenFormScreen(onViewFixed: (() -> Unit)? = null) {
     BrokenScreenCard(
-        title = "Screen 3: Broken Form",
-        subtitle = "Clickable elements lack roles and source order breaks focus flow",
+        title = "Payment form",
+        subtitle = "Transfer details with intentionally broken focus order",
     ) {
-        Text("Preference form", style = MaterialTheme.typography.titleMedium)
+        var amount by remember { mutableStateOf("") }
+        var recipient by remember { mutableStateOf("") }
+        var reference by remember { mutableStateOf("") }
+        var paymentDate by remember { mutableStateOf("") }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .background(Color(0xFFECEFF1), RoundedCornerShape(8.dp)),
+                .height(460.dp)
+                .background(Color(0xFF0D1117), RoundedCornerShape(8.dp))
+                .padding(16.dp),
         ) {
-            FormAction(
-                text = "Submit preferences",
-                color = Color(0xFF00796B),
+            PaymentSubmitAction(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(16.dp),
+                    .fillMaxWidth(),
             )
-            FormAction(
-                text = "Choose plan",
-                color = Color(0xFF5E35B1),
+
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { amount = it },
+                label = { Text("Amount") },
+                prefix = {
+                    Text(
+                        text = "$",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                textStyle = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(16.dp),
+                    .fillMaxWidth(),
             )
-            FormAction(
-                text = "Reset fields",
-                color = Color(0xFFC62828),
+
+            Row(
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(16.dp),
+                    .align(Alignment.TopStart)
+                    .padding(top = 116.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(Color(0xFF6C63FF), RoundedCornerShape(28.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "MJ",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                OutlinedTextField(
+                    value = recipient,
+                    onValueChange = { recipient = it },
+                    label = { Text("Recipient Account") },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            OutlinedTextField(
+                value = paymentDate,
+                onValueChange = { paymentDate = it },
+                label = { Text("Payment Date") },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 210.dp)
+                    .fillMaxWidth(),
+            )
+
+            OutlinedTextField(
+                value = reference,
+                onValueChange = { reference = it },
+                label = { Text("Reference Note") },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 294.dp)
+                    .fillMaxWidth(),
             )
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FormAction("Monthly", Color(0xFF455A64), Modifier.weight(1f))
-            FormAction("Yearly", Color(0xFF455A64), Modifier.weight(1f))
-        }
         onViewFixed?.let {
             Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 Text("View Fixed Version")
             }
+        }
+    }
+}
+
+@Composable
+private fun PaymentSubmitAction(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .height(56.dp)
+            .background(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color(0xFF6C63FF), Color(0xFF00D4AA)),
+                ),
+                shape = RoundedCornerShape(16.dp),
+            )
+            .clickable(
+                role = Role.Button,
+                onClick = {},
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Lock,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = "Send Payment",
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
@@ -1100,29 +1192,90 @@ private fun FixedFinancialNewsCard(
 @Composable
 fun FixedFormScreen(onViewBroken: (() -> Unit)? = null) {
     BrokenScreenCard(
-        title = "Fixed Form",
-        subtitle = "Button roles and top-to-bottom focus order",
+        title = "Payment form",
+        subtitle = "Accessible transfer details with top-to-bottom focus order",
     ) {
-        Text("Preference form", style = MaterialTheme.typography.titleMedium)
-        Button(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("Choose plan")
-        }
-        Button(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("Reset fields")
-        }
-        Button(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("Submit preferences")
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                Text("Monthly")
+        var amount by remember { mutableStateOf("") }
+        var recipient by remember { mutableStateOf("") }
+        var reference by remember { mutableStateOf("") }
+        var paymentDate by remember { mutableStateOf("") }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0D1117), RoundedCornerShape(8.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { amount = it },
+                label = { Text("Amount") },
+                prefix = {
+                    Text(
+                        text = "$",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                textStyle = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(Color(0xFF6C63FF), RoundedCornerShape(28.dp))
+                        .semantics { contentDescription = "Recipient avatar for Maya Johnson" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "MJ",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                OutlinedTextField(
+                    value = recipient,
+                    onValueChange = { recipient = it },
+                    label = { Text("Recipient Account") },
+                    modifier = Modifier.weight(1f),
+                )
             }
-            Button(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                Text("Yearly")
-            }
+
+            OutlinedTextField(
+                value = paymentDate,
+                onValueChange = { paymentDate = it },
+                label = { Text("Payment Date") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
+                value = reference,
+                onValueChange = { reference = it },
+                label = { Text("Reference Note") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            PaymentSubmitAction(modifier = Modifier.fillMaxWidth())
         }
+
         onViewBroken?.let {
-            Button(onClick = it, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Button(
+                onClick = it,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+            ) {
                 Text("View Broken Version")
             }
         }
