@@ -24,9 +24,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -109,6 +112,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
     var scanScrollY by remember { mutableIntStateOf(0) }
     val scrollState = rememberScrollState()
     val screens = listOf("Login", "Feed", "Form")
+    val screenIcons = listOf(Icons.Filled.Person, Icons.AutoMirrored.Filled.List, Icons.Filled.Edit)
     val screenSubtitles = listOf(
         "Credentials and compact actions",
         "Stories, captions, and repeated labels",
@@ -191,11 +195,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
                             },
                             icon = {
                                 Icon(
-                                    imageVector = if (selectedScreen == index) {
-                                        Icons.Filled.CheckCircle
-                                    } else {
-                                        Icons.Filled.Search
-                                    },
+                                    imageVector = screenIcons[index],
                                     contentDescription = null,
                                 )
                             },
