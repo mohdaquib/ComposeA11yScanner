@@ -19,3 +19,4 @@ local.properties
 .claude/
 .idea/
 .kotlin/errors/
+/.idea/deploymentTargetSelector.xml
