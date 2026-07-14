@@ -25,6 +25,18 @@ class TouchTargetRuleTest {
     }
 
     @Test
+    fun `floating point noise just below minimum size passes`() {
+        assertNull(
+            rule.evaluate(
+                createNode(
+                    isTouchTarget = true,
+                    touchTargetSize = DpSize(47.999996f, 47.999996f),
+                )
+            )
+        )
+    }
+
+    @Test
     fun `touch target larger than minimum passes`() {
         assertNull(rule.evaluate(createNode(isTouchTarget = true, touchTargetSize = DpSize(56f, 64f))))
     }
@@ -47,6 +59,18 @@ class TouchTargetRuleTest {
     @Test
     fun `width below minimum fails`() {
         assertNotNull(rule.evaluate(createNode(isTouchTarget = true, touchTargetSize = DpSize(44f, 48f))))
+    }
+
+    @Test
+    fun `meaningfully undersized target is not hidden by measurement tolerance`() {
+        assertNotNull(
+            rule.evaluate(
+                createNode(
+                    isTouchTarget = true,
+                    touchTargetSize = DpSize(47.98f, 48f),
+                )
+            )
+        )
     }
 
     @Test

@@ -19,7 +19,12 @@ class TouchTargetRule(
 
         val w = node.touchTargetSize.width
         val h = node.touchTargetSize.height
-        if (w >= minTouchTargetDp && h >= minTouchTargetDp) return null
+        // Pixel bounds converted back to dp can land infinitesimally below an exact dp value
+        // (for example, a 48 dp target may be reported as 47.999996 dp).
+        if (
+            w + MeasurementToleranceDp >= minTouchTargetDp &&
+            h + MeasurementToleranceDp >= minTouchTargetDp
+        ) return null
 
         return issue(
             node = node,
@@ -28,5 +33,9 @@ class TouchTargetRule(
             howToFix = "Apply Modifier.minimumInteractiveComponentSize() or add padding so the " +
                 "composable reaches at least ${minTouchTargetDp}dp in both dimensions.",
         )
+    }
+
+    private companion object {
+        const val MeasurementToleranceDp = 0.01f
     }
 }

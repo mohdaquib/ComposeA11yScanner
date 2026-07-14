@@ -18,9 +18,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,6 +104,8 @@ fun ScanSummaryBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            // topOffset clears the host toolbar; the inset additionally clears the system bar.
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(top = topOffset, start = 16.dp, end = 16.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
