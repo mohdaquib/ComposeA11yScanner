@@ -68,7 +68,10 @@ class A11yNodeExtractor(private val density: Density) {
             null
         }
         val visualBounds = boundsInRoot
-        val touchTargetBounds = layoutBoundsInRoot()
+        // Compose expands pointer input for small clickables to the platform minimum touch
+        // target without changing their visual/layout bounds. Measure the region that actually
+        // accepts input so compact controls such as a short FilterChip are not false positives.
+        val touchTargetBounds = touchBoundsInRoot
         val bounds = visualBounds.toCoreRect()
 
         return A11yNode(
@@ -144,16 +147,6 @@ class A11yNodeExtractor(private val density: Density) {
         children.forEach { child ->
             child.collectTextLabelsInto(labels)
         }
-    }
-
-    private fun SemanticsNode.layoutBoundsInRoot(): androidx.compose.ui.geometry.Rect {
-        val position = positionInRoot
-        return androidx.compose.ui.geometry.Rect(
-            left = position.x,
-            top = position.y,
-            right = position.x + layoutInfo.width,
-            bottom = position.y + layoutInfo.height,
-        )
     }
 
     private fun androidx.compose.ui.geometry.Rect.toCoreRect(): Rect = Rect(
