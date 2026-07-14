@@ -20,12 +20,17 @@ import kotlin.math.roundToInt
  * Use the unmerged tree to see all rendered nodes including merged descendants:
  *   - Test: `composeTestRule.onRoot(useUnmergedTree = true).fetchSemanticsNode()`
  *   - Production: `SemanticsOwner.rootSemanticsNode` via [extract(SemanticsOwner)]
+ *
+ * @param density Density used to convert pixel bounds into dp sizes.
  */
 class A11yNodeExtractor(private val density: Density) {
 
     /**
      * Recursively extracts all nodes from the tree rooted at [rootNode].
      * Returns a flat list in depth-first order.
+     *
+     * @param rootNode Root semantics node to walk.
+     * @return Flattened accessibility nodes.
      */
     fun extract(rootNode: SemanticsNode): List<A11yNode> {
         val result = mutableListOf<A11yNode>()
@@ -36,6 +41,9 @@ class A11yNodeExtractor(private val density: Density) {
     /**
      * Entry point for production use. Requires opting in to the internal Compose UI API
      * needed to access [SemanticsOwner].
+     *
+     * @param owner Semantics owner to extract from.
+     * @return Flattened accessibility nodes.
      */
     @OptIn(InternalComposeUiApi::class)
     fun extract(owner: SemanticsOwner): List<A11yNode> = extract(owner.rootSemanticsNode)

@@ -48,6 +48,12 @@ import com.composea11yscanner.core.model.ScannerState
  * A new scan starts automatically when the scaffold enters composition and again
  * whenever [config] changes. The in-flight scan is stopped when the scaffold
  * leaves composition.
+ *
+ * @param scannerController Controller that runs scans and exposes scanner state.
+ * @param config Scanner configuration applied to the controller.
+ * @param modifier Modifier applied to the root scaffold.
+ * @param issueOffsetY Vertical offset applied to issue highlights.
+ * @param content Host UI content being scanned.
  */
 @Composable
 fun A11yScannerScaffold(

@@ -5,13 +5,22 @@ import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.rule.BaseA11yRule
 
+/** Flags interactive or image-like nodes that do not expose a content description. */
 class MissingContentDescriptionRule : BaseA11yRule() {
 
+    /** Stable id for the missing content description rule. */
     override val ruleId = "missing-content-description"
+
+    /** Human-readable rule name. */
     override val ruleName = "Missing Content Description"
+
+    /** Severity assigned to missing labels. */
     override val severity = A11ySeverity.Error
+
+    /** WCAG criterion associated with non-text content. */
     override val wcagReference = "WCAG 1.1.1 Non-text Content (Level A)"
 
+    /** Evaluates a single node for a screen-reader label. */
     override fun check(node: A11yNode): A11yIssue? {
         // Merged descendants are announced via their parent — skip them.
         if (node.isMergedDescendant) return null

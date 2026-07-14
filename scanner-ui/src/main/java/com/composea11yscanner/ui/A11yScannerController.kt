@@ -41,7 +41,7 @@ import kotlinx.coroutines.withContext
  *
  * @param nodeProvider Called once per [startScan] invocation to produce the node list.
  *   Must be safe to call on [Dispatchers.Default].
- * @param screenDensity [DisplayMetrics.density] — forwarded to density-dependent rules.
+ * @param screenDensity DisplayMetrics.density, forwarded to density-dependent rules.
  */
 class A11yScannerController(
     private val nodeProvider: () -> List<A11yNode>,
@@ -75,7 +75,12 @@ class A11yScannerController(
 
     // --- Builder methods ---
 
-    /** Replaces the active configuration. Returns [this] for chaining. */
+    /**
+     * Replaces the active scanner configuration.
+     *
+     * @param config Configuration used for future scans.
+     * @return This controller for chaining.
+     */
     fun configure(config: ScannerConfig): A11yScannerController = apply {
         this.config = config
     }
@@ -83,7 +88,10 @@ class A11yScannerController(
     /**
      * Appends [rules] to the set that will run alongside the standard rule set.
      * Custom rules are automatically added to [ScannerConfig.enabledRules] so the
-     * engine never filters them out. Returns [this] for chaining.
+     * engine never filters them out. Returns this controller for chaining.
+     *
+     * @param rules Custom rules to append.
+     * @return This controller for chaining.
      */
     fun withRules(vararg rules: A11yRule): A11yScannerController = apply {
         customRules += rules
@@ -95,7 +103,7 @@ class A11yScannerController(
      * Cancels any in-progress scan, then starts a new one.
      *
      * Returns a [Flow] backed by a [MutableSharedFlow] — multiple collectors are safe,
-     * and late subscribers receive the most recent state immediately via [replay].
+     * and late subscribers receive the most recent state immediately via replay.
      *
      * Emission sequence: Scanning(0f) → Scanning(k/n) … → Scanning(1f) → Complete(result)
      * or Complete(emptyResult) if there are no enabled rules or no nodes.
@@ -126,6 +134,7 @@ class A11yScannerController(
         return _state.asSharedFlow()
     }
 
+    /** Stops any active scan and emits [ScannerState.Idle]. */
     fun clearState() {
         stopScan()
         _state.tryEmit(ScannerState.Idle)

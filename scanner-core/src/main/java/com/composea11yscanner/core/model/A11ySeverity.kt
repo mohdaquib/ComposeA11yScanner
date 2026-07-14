@@ -1,8 +1,11 @@
 package com.composea11yscanner.core.model
 
+/** Priority level for an accessibility issue. */
 sealed interface A11ySeverity : Comparable<A11ySeverity> {
+    /** Numeric order used for sorting, where lower values are more severe. */
     val sortOrder: Int
 
+    /** Sorts severities by [sortOrder]. */
     override fun compareTo(other: A11ySeverity): Int = sortOrder.compareTo(other.sortOrder)
 
     /** Must fix — blocks accessibility. */

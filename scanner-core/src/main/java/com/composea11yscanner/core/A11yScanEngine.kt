@@ -26,7 +26,7 @@ import java.util.UUID
  * emissions on their own dispatcher.
  *
  * @param rules All candidate rules. Only those whose [A11yRule.ruleId] appears in
- *   [config.enabledRules] will be evaluated — defensive against callers that pass the
+ *   `config.enabledRules` will be evaluated — defensive against callers that pass the
  *   full rule set regardless of config.
  */
 class A11yScanEngine(
@@ -35,6 +35,12 @@ class A11yScanEngine(
 ) {
     private val enabledRules: List<A11yRule> = rules.filter { it.ruleId in config.enabledRules }
 
+    /**
+     * Runs enabled rules over [nodes] and emits progress followed by a terminal state.
+     *
+     * @param nodes Nodes extracted from the UI semantics tree.
+     * @return Flow of [ScannerState] values for progress, success, or failure.
+     */
     fun scan(nodes: List<A11yNode>): Flow<ScannerState> = flow {
         // Fast path: nothing to evaluate.
         if (enabledRules.isEmpty() || nodes.isEmpty()) {

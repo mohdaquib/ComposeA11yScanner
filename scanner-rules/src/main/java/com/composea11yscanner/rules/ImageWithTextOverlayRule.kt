@@ -6,6 +6,8 @@ import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.rule.BaseScanRule
 
 /**
+ * Flags text nodes that significantly overlap image nodes.
+ *
  * @param overlapThreshold Fraction of the text node's area that must intersect an image
  *   node before the pair is flagged (default 0.5 = 50%).
  */
@@ -13,11 +15,19 @@ class ImageWithTextOverlayRule(
     private val overlapThreshold: Float = 0.5f,
 ) : BaseScanRule() {
 
+    /** Stable id for the image text overlay rule. */
     override val ruleId = "image-text-overlay"
+
+    /** Human-readable rule name. */
     override val ruleName = "Image With Text Overlay"
+
+    /** Severity assigned to possible image/text contrast risk. */
     override val severity = A11ySeverity.Warning
+
+    /** WCAG criterion associated with contrast. */
     override val wcagReference = "WCAG 1.4.3 Contrast Minimum (Level AA)"
 
+    /** Evaluates all text and image nodes together to find overlaps. */
     override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> {
         val textNodes = nodes.filter { it.composableName.contains("Text", ignoreCase = true) }
         val imageNodes = nodes.filter { it.composableName.contains("Image", ignoreCase = true) }
