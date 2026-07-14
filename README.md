@@ -24,7 +24,7 @@ flowchart LR
 
 ```kotlin
 repositories { maven("https://jitpack.io") }
-dependencies { debugImplementation("io.github.mohdaquib:scanner-ui:<version>") }
+dependencies { debugImplementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:<tag>") }
 ```
 
 Use a debug-only dependency because the scanner is intended for development builds. `:scanner-ui` brings `:scanner-core` and `:scanner-rules` transitively.

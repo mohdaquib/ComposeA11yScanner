@@ -17,6 +17,8 @@ jobs:
   publish-dokka:
     name: Publish Dokka HTML
     runs-on: ubuntu-latest
+    env:
+      PAGES_TOKEN: ${{ secrets.PAGES_TOKEN }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -31,7 +33,15 @@ jobs:
           cache: gradle
       - name: Generate Dokka HTML
         run: ./gradlew dokkaGenerate
-      - uses: actions/configure-pages@v5
+      - name: Configure GitHub Pages
+        if: ${{ env.PAGES_TOKEN == '' }}
+        uses: actions/configure-pages@v5
+      - name: Configure GitHub Pages and enable site
+        if: ${{ env.PAGES_TOKEN != '' }}
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+          token: ${{ env.PAGES_TOKEN }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/dokka/html
