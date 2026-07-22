@@ -50,8 +50,8 @@ class ClickableRoleRuleTest {
     // --- failing cases ---
 
     @Test
-    fun `touch target with null role fails`() {
-        assertNotNull(rule.evaluate(createNode(isTouchTarget = true, role = null)))
+    fun `touch target with null role passes when no predefined role applies`() {
+        assertNull(rule.evaluate(createNode(isTouchTarget = true, role = null)))
     }
 
     @Test
@@ -90,13 +90,16 @@ class ClickableRoleRuleTest {
             createNode(isTouchTarget = false),
             createNode(isTouchTarget = true, role = A11yRole.Button),
             createNode(isTouchTarget = true, role = null),
+            createNode(isTouchTarget = true, role = A11yRole.Image, contentDescription = null),
         )
         assertEquals(1, rule.evaluateAll(nodes).size)
     }
 
     @Test
     fun `issue carries correct rule metadata`() {
-        val issue = rule.evaluate(createNode(isTouchTarget = true, role = null))!!
+        val issue = rule.evaluate(
+            createNode(isTouchTarget = true, role = A11yRole.Image, contentDescription = null)
+        )!!
         assertEquals("clickable-role", issue.ruleId)
         assertEquals(A11ySeverity.Error, issue.severity)
         assertEquals("WCAG 4.1.2 Name, Role, Value (Level A)", issue.wcagReference)

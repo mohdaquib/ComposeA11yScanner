@@ -8,7 +8,6 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsOwner
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.unit.Density
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.ui.A11yNodeExtractor
@@ -33,7 +32,7 @@ internal fun ComponentActivity.extractBrokenSampleNodes(): List<A11yNode> =
             ?: sampleRoot.boundsInRoot.let {
                 Rect(it.left.roundToInt(), it.top.roundToInt(), it.right.roundToInt(), it.bottom.roundToInt())
             }
-        A11yNodeExtractor(Density(this))
+        A11yNodeExtractor()
             .extract(sampleRoot)
             .filterVisibleIn(viewport)
     }.getOrDefault(emptyList())

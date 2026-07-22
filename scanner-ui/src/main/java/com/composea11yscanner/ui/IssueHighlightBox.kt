@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import com.composea11yscanner.core.model.A11yIssue
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 
 private val ErrorBorderColor = Color(0xFFD32F2F)
@@ -148,7 +147,6 @@ private fun previewIssue(severity: A11ySeverity) = A11yIssue(
         bounds = Rect(0, 0, 300, 150),
         contentDescription = null,
         isTouchTarget = true,
-        touchTargetSize = DpSize(100f, 50f),
         textColor = null,
         backgroundColors = emptyList(),
         isFocusable = true,

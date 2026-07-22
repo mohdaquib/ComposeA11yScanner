@@ -14,7 +14,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.composea11yscanner.core.model.A11yIssue
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
 
@@ -83,7 +82,6 @@ private fun A11yIssueOverlayPreview() {
         bounds = Rect(0, 0, 120, 48),
         contentDescription = null,
         isTouchTarget = true,
-        touchTargetSize = DpSize(120f, 48f),
         textColor = null,
         backgroundColors = emptyList(),
         isFocusable = true,

@@ -3,7 +3,6 @@ package com.composea11yscanner.ui
 import com.composea11yscanner.core.model.A11yIssue
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
 
@@ -31,7 +30,6 @@ internal fun nodeFixture() = A11yNode(
     bounds = Rect(left = 0, top = 0, right = 300, bottom = 120),
     contentDescription = null,
     isTouchTarget = true,
-    touchTargetSize = DpSize(width = 100f, height = 40f),
     textColor = null,
     backgroundColors = emptyList(),
     isFocusable = true,

@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
  * Typical usage:
  * ```
  * val controller = A11yScannerController(
- *     nodeProvider  = { A11yNodeExtractor(density).extract(semanticsOwner) },
+ *     nodeProvider  = { A11yNodeExtractor().extract(semanticsOwner) },
  *     screenDensity = resources.displayMetrics.density,
  * )
  *     .configure(ScannerConfig(enabledRules = ScannerRules.allRuleIds().toSet()))
