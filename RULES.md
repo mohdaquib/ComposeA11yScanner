@@ -2,43 +2,18 @@
 
 Compose A11y Scanner ships the built-in rules registered by `ScannerRules.allRuleIds()`.
 
-Implementation note: the current codebase exposes 7 built-in rules, not 8. This document covers every implemented built-in rule in `scanner-rules`.
+Implementation note: the current codebase exposes 6 built-in rules. This document covers every implemented built-in rule in `scanner-rules`.
 
 ## Summary
 
 | Rule ID | Name | Severity | What It Checks | How To Fix | WCAG Reference |
 | --- | --- | --- | --- | --- | --- |
-| `touch-target-size` | Touch Target Size | Error | Clickable/touch target nodes whose measured width or height is smaller than the configured minimum, 48dp by default. | Use `Modifier.minimumInteractiveComponentSize()` or add padding so the interactive area is at least the configured minimum in both dimensions. | WCAG 2.5.5 Target Size (Level AA) |
 | `missing-content-description` | Missing Content Description | Error | Interactive nodes and image-like nodes that do not expose a non-empty content description. | Add a meaningful `contentDescription` through semantics, or pass one directly to image composables that support it. | WCAG 1.1.1 Non-text Content (Level A) |
 | `duplicate-content-description` | Duplicate Content Description | Warning | Non-merged nodes at the same semantics depth that reuse the same non-empty content description. | Give each control or item a label that identifies its specific action, state, or content. | WCAG 2.4.6 Headings and Labels (Level AA) |
 | `focus-order` | Focus Order | Error | Focusable nodes whose semantics traversal jumps upward compared with the previous focusable node's visual position. | Reorder composables so focus follows the visual reading order, or set explicit traversal order with semantics. | WCAG 2.4.3 Focus Order (Level A) |
 | `text-scaling` | Text Scaling | Warning | Text nodes that may overflow or clip inside their parent when simulated at a larger font scale. | Avoid fixed-height containers for text; use flexible height, wrapping, or scrolling so scaled text can reflow. | WCAG 1.4.4 Resize Text (Level AA) |
 | `image-text-overlay` | Image With Text Overlay | Warning | Text nodes that significantly overlap image nodes, creating a contrast risk across dynamic images. | Add a scrim or solid text background, or otherwise guarantee sufficient contrast for every image state. | WCAG 1.4.3 Contrast Minimum (Level AA) |
-| `clickable-role` | Clickable Role | Error | Clickable/touch target nodes that do not expose a semantic role, and clickable image roles without a content description. | Add the appropriate role, such as `Role.Button`, `Role.Checkbox`, or `Role.Image`; provide labels for clickable images. | WCAG 4.1.2 Name, Role, Value (Level A) |
-
-## `touch-target-size` - Touch Target Size
-
-**Severity:** Error
-
-**What it checks:** This rule evaluates clickable/touch target nodes that are not merged descendants. It reports a node when either its measured width or height is smaller than `ScannerConfig.minTouchTargetDp`, which defaults to 48dp.
-
-**How to fix:** Ensure the interactive area reaches the minimum size in both dimensions. Prefer Material's `Modifier.minimumInteractiveComponentSize()` for Material controls, or add padding around custom controls.
-
-**WCAG reference:** WCAG 2.5.5 Target Size (Level AA)
-
-**Code example:**
-
-```kotlin
-IconButton(
-    onClick = onClose,
-    modifier = Modifier.minimumInteractiveComponentSize(),
-) {
-    Icon(
-        imageVector = Icons.Default.Close,
-        contentDescription = "Close",
-    )
-}
-```
+| `clickable-role` | Clickable Role | Error | Clickable nodes with role-specific semantic requirements, currently clickable images without a content description. | Provide a meaningful label for clickable images. A generic clickable does not require a role when no predefined Compose role accurately applies. | WCAG 4.1.2 Name, Role, Value (Level A) |
 
 ## `missing-content-description` - Missing Content Description
 
@@ -196,9 +171,9 @@ Box {
 
 **Severity:** Error
 
-**What it checks:** This rule reports clickable/touch target nodes that are not merged descendants and do not expose a semantic role. It also reports clickable image roles when the content description is empty.
+**What it checks:** This rule reports clickable image nodes when their content description is empty. A generic clickable node is not reported merely because its role is null: Compose permits an unspecified role when none of its predefined roles accurately describes the element, such as a clickable list row.
 
-**How to fix:** Use Material components when possible because they usually provide roles automatically. For custom click targets, set the appropriate role through semantics or use clickable APIs that expose the role.
+**How to fix:** Provide a meaningful, non-empty content description for a clickable image. For controls with a well-defined role, use the corresponding semantic API—for example, `selectable(role = Role.Tab, ...)` for a custom tab—but do not assign `Role.Button` to generic click targets solely to satisfy this rule.
 
 **WCAG reference:** WCAG 4.1.2 Name, Role, Value (Level A)
 
@@ -211,8 +186,7 @@ Box(
             role = Role.Button
             contentDescription = "Retry loading"
         }
-        .clickable(onClick = onRetry)
-        .minimumInteractiveComponentSize(),
+        .clickable(onClick = onRetry),
 ) {
     Text("Retry")
 }

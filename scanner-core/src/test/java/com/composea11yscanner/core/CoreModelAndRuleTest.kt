@@ -4,7 +4,6 @@ import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11yRole
 import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.model.Color
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
 import com.composea11yscanner.core.rule.BaseA11yRule
@@ -24,7 +23,6 @@ class CoreModelAndRuleTest {
         bounds = Rect(0, 0, 100, 48),
         contentDescription = "Submit",
         isTouchTarget = true,
-        touchTargetSize = DpSize(100f, 48f),
         textColor = Color(0xFF000000),
         backgroundColors = emptyList(),
         isFocusable = true,

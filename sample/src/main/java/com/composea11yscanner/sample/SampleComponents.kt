@@ -56,9 +56,9 @@ fun BrokenScreenCard(
 }
 
 @Composable
-fun BankLogoMark() {
+fun BankLogoMark(modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(48.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF6C63FF)),

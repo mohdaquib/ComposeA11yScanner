@@ -7,10 +7,8 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsOwner
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.unit.Density
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11yRole
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import kotlin.math.roundToInt
 
@@ -21,9 +19,8 @@ import kotlin.math.roundToInt
  *   - Test: `composeTestRule.onRoot(useUnmergedTree = true).fetchSemanticsNode()`
  *   - Production: `SemanticsOwner.rootSemanticsNode` via [extract(SemanticsOwner)]
  *
- * @param density Density used to convert pixel bounds into dp sizes.
  */
-class A11yNodeExtractor(private val density: Density) {
+class A11yNodeExtractor {
 
     /**
      * Recursively extracts all nodes from the tree rooted at [rootNode].
@@ -76,10 +73,6 @@ class A11yNodeExtractor(private val density: Density) {
             null
         }
         val visualBounds = boundsInRoot
-        // Compose expands pointer input for small clickables to the platform minimum touch
-        // target without changing their visual/layout bounds. Measure the region that actually
-        // accepts input so compact controls such as a short FilterChip are not false positives.
-        val touchTargetBounds = touchBoundsInRoot
         val bounds = visualBounds.toCoreRect()
 
         return A11yNode(
@@ -95,7 +88,6 @@ class A11yNodeExtractor(private val density: Density) {
                 ?.joinToString(separator = ", ")
                 ?: textLabel,
             isTouchTarget = isTouchTarget,
-            touchTargetSize = touchTargetBounds.toDpSize(),
             textColor = null,               // not available via semantics
             backgroundColors = emptyList(), // not available via semantics
             isFocusable = config.contains(SemanticsActions.OnClick)
@@ -164,12 +156,6 @@ class A11yNodeExtractor(private val density: Density) {
         bottom = bottom.roundToInt(),
     )
 
-    private fun androidx.compose.ui.geometry.Rect.toDpSize(): DpSize = with(density) {
-        DpSize(
-            width = width.toDp().value,
-            height = height.toDp().value,
-        )
-    }
 }
 
 // --- Role mapping ---

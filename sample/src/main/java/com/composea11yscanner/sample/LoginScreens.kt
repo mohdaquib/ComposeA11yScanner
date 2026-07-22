@@ -47,7 +47,7 @@ fun BrokenLoginScreen(onViewFixed: (() -> Unit)? = null) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        SecureBankHeader()
+        SecureBankHeader(isFixed = false)
         LoginIntro()
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -135,7 +135,7 @@ fun FixedLoginScreen(onViewBroken: (() -> Unit)? = null) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        SecureBankHeader()
+        SecureBankHeader(isFixed = true)
         LoginIntro()
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -239,13 +239,22 @@ fun FixedLoginScreen(onViewBroken: (() -> Unit)? = null) {
 }
 
 @Composable
-private fun SecureBankHeader() {
+private fun SecureBankHeader(isFixed: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        BankLogoMark()
+        BankLogoMark(
+            modifier = if (isFixed) {
+                Modifier
+                    .semantics { contentDescription = "Open SecureBank home" }
+                    .clickable(role = Role.Image, onClick = {})
+            } else {
+                // Intentionally broken: an actionable image needs an accessible description.
+                Modifier.clickable(role = Role.Image, onClick = {})
+            },
+        )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = "SecureBank",

@@ -3,7 +3,6 @@ package com.composea11yscanner.export
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.model.Color
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
 import java.util.Locale
@@ -100,8 +99,6 @@ object ScanResultExporter {
         append(", ")
         appendJsonPair("isTouchTarget", isTouchTarget)
         append(", ")
-        appendJsonPair("touchTargetSize", touchTargetSize)
-        append(", ")
         appendJsonPair("textColor", textColor)
         append(", ")
         append("\"backgroundColors\": [")
@@ -181,13 +178,6 @@ object ScanResultExporter {
         append(value.toJson())
     }
 
-    private fun StringBuilder.appendJsonPair(name: String, value: DpSize) {
-        append("\"")
-        append(name.escapeJson())
-        append("\": ")
-        append(value.toJson())
-    }
-
     private fun StringBuilder.appendJsonPair(name: String, value: Color?) {
         append("\"")
         append(name.escapeJson())
@@ -198,14 +188,8 @@ object ScanResultExporter {
     private fun Rect.toJson(): String =
         """{"left": $left, "top": $top, "right": $right, "bottom": $bottom, "width": $width, "height": $height}"""
 
-    private fun DpSize.toJson(): String =
-        """{"width": ${width.toJsonNumber()}, "height": ${height.toJsonNumber()}}"""
-
     private fun Color.toJson(): String =
         """{"value": $value}"""
-
-    private fun Float.toJsonNumber(): String =
-        if (isFinite()) toString() else "null"
 
     private fun Float.formatPercent(): String =
         String.format(Locale.US, "%.1f%%", this)
