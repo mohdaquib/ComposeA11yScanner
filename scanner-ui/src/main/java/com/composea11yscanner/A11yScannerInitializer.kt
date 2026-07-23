@@ -15,7 +15,6 @@ import com.composea11yscanner.rules.ScannerRules
  * AndroidX App Startup initializer for installing [ComposeA11yScanner] in debug builds.
  *
  * Configure the scanner from the app manifest with:
- * - `a11y_scanner_min_touch_target`
  * - `a11y_scanner_min_contrast`
  * - `a11y_scanner_auto_scan`
  */
@@ -68,10 +67,6 @@ class A11yScannerInitializer : Initializer<Unit> {
         val defaults = ScannerConfig(enabledRules = emptySet())
         return ScannerConfig(
             enabledRules = ScannerRules.allRuleIds().toSet(),
-            minTouchTargetDp = metadata.intValue(
-                key = META_MIN_TOUCH_TARGET,
-                defaultValue = defaults.minTouchTargetDp,
-            ),
             minContrastRatio = metadata.floatValue(
                 key = META_MIN_CONTRAST,
                 defaultValue = defaults.minContrastRatio,
@@ -87,14 +82,6 @@ class A11yScannerInitializer : Initializer<Unit> {
         val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
         return appInfo.metaData ?: Bundle.EMPTY
     }
-
-    private fun Bundle.intValue(key: String, defaultValue: Int): Int =
-        when (val value = get(key)) {
-            is Int -> value
-            is Number -> value.toInt()
-            is String -> value.toIntOrNull() ?: defaultValue
-            else -> defaultValue
-        }
 
     private fun Bundle.floatValue(key: String, defaultValue: Float): Float =
         when (val value = get(key)) {
@@ -112,7 +99,6 @@ class A11yScannerInitializer : Initializer<Unit> {
         }
 
     private companion object {
-        const val META_MIN_TOUCH_TARGET = "a11y_scanner_min_touch_target"
         const val META_MIN_CONTRAST = "a11y_scanner_min_contrast"
         const val META_AUTO_SCAN = "a11y_scanner_auto_scan"
     }

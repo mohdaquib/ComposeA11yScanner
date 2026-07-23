@@ -28,7 +28,6 @@ import androidx.compose.ui.platform.AbstractComposeView
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.semantics.SemanticsOwner
-import androidx.compose.ui.unit.Density
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.composea11yscanner.core.model.A11yIssue
@@ -204,7 +203,7 @@ object ComposeA11yScanner {
             ?.findFirstAbstractComposeView(excludeView = overlayView)
             ?: return emptyList()
         val semanticsOwner = hostView.findSemanticsOwner() ?: return emptyList()
-        return A11yNodeExtractor(Density(activity)).extract(semanticsOwner)
+        return A11yNodeExtractor().extract(semanticsOwner)
     }
 
     private fun AbstractComposeView.findSemanticsOwner(): SemanticsOwner? {

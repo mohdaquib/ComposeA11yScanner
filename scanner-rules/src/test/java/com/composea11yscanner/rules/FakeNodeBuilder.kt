@@ -3,7 +3,6 @@ package com.composea11yscanner.rules
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11yRole
 import com.composea11yscanner.core.model.Color
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -14,7 +13,7 @@ fun createNode(
     bounds: Rect = Rect(0, 0, 100, 100),
     contentDescription: String? = null,
     isTouchTarget: Boolean = false,
-    touchTargetSize: DpSize = DpSize(48f, 48f),
+    effectiveTouchBounds: Rect? = null,
     textColor: Color? = null,
     backgroundColors: List<Color> = emptyList(),
     isFocusable: Boolean = false,
@@ -28,11 +27,11 @@ fun createNode(
     bounds = bounds,
     contentDescription = contentDescription,
     isTouchTarget = isTouchTarget,
-    touchTargetSize = touchTargetSize,
     textColor = textColor,
     backgroundColors = backgroundColors,
     isFocusable = isFocusable,
     isMergedDescendant = isMergedDescendant,
     depth = depth,
     role = role,
+    effectiveTouchBounds = effectiveTouchBounds,
 )

@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import com.composea11yscanner.core.model.A11yIssue
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScanResult
 import com.composea11yscanner.core.model.ScannerConfig
@@ -194,7 +193,6 @@ private fun previewScanResult() = ScanResult(
                 nodeId = "node-1", composableName = "Button",
                 bounds = Rect(0, 0, 300, 120),
                 contentDescription = null, isTouchTarget = true,
-                touchTargetSize = DpSize(100f, 40f),
                 textColor = null, backgroundColors = emptyList(),
                 isFocusable = true, isMergedDescendant = false, depth = 1,
             ),

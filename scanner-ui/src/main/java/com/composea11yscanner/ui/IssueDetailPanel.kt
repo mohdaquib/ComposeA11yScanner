@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import com.composea11yscanner.core.model.A11yIssue
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import java.util.Locale
 
@@ -397,11 +396,11 @@ private fun IssueDetailPanelMultipleIssuesPreview() {
                     wcagReference = "WCAG 4.1.2 Name, Role, Value (Level A)",
                 ),
                 previewIssue(
-                    severity = A11ySeverity.Error,
-                    ruleName = "Touch Target Size",
-                    message = "Touch target is 28x28dp. Minimum required is 48x48dp.",
-                    howToFix = "Apply Modifier.minimumInteractiveComponentSize() or add padding.",
-                    wcagReference = "WCAG 2.5.5 Target Size (Level AA)",
+                    severity = A11ySeverity.Warning,
+                    ruleName = "Touch Target Overlap",
+                    message = "Effective touch target overlaps another target.",
+                    howToFix = "Increase spacing so effective touch regions do not overlap.",
+                    wcagReference = null,
                 ),
                 previewIssue(
                     severity = A11ySeverity.Warning,
@@ -433,7 +432,6 @@ private fun previewIssue(
         bounds = Rect(0, 0, 300, 120),
         contentDescription = null,
         isTouchTarget = true,
-        touchTargetSize = DpSize(100f, 40f),
         textColor = null,
         backgroundColors = emptyList(),
         isFocusable = true,

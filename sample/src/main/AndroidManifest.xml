@@ -11,9 +11,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ComposeA11yScanner">
         <meta-data
-            android:name="a11y_scanner_min_touch_target"
-            android:value="48" />
-        <meta-data
             android:name="a11y_scanner_min_contrast"
             android:value="4.5" />
         <meta-data

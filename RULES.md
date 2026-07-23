@@ -8,7 +8,7 @@ Implementation note: the current codebase exposes 7 built-in rules, not 8. This 
 
 | Rule ID | Name | Severity | What It Checks | How To Fix | WCAG Reference |
 | --- | --- | --- | --- | --- | --- |
-| `touch-target-size` | Touch Target Size | Error | Clickable/touch target nodes whose measured width or height is smaller than the configured minimum, 48dp by default. | Use `Modifier.minimumInteractiveComponentSize()` or add padding so the interactive area is at least the configured minimum in both dimensions. | WCAG 2.5.5 Target Size (Level AA) |
+| `touch-target-overlap` | Touch Target Overlap | Warning | Interactive nodes whose effective Compose touch bounds overlap another effective target. | Increase spacing, enlarge layout bounds, or restructure controls so their effective hit regions do not overlap. | Android accessibility guidance |
 | `missing-content-description` | Missing Content Description | Error | Interactive nodes and image-like nodes that do not expose a non-empty content description. | Add a meaningful `contentDescription` through semantics, or pass one directly to image composables that support it. | WCAG 1.1.1 Non-text Content (Level A) |
 | `duplicate-content-description` | Duplicate Content Description | Warning | Non-merged nodes at the same semantics depth that reuse the same non-empty content description. | Give each control or item a label that identifies its specific action, state, or content. | WCAG 2.4.6 Headings and Labels (Level AA) |
 | `focus-order` | Focus Order | Error | Focusable nodes whose semantics traversal jumps upward compared with the previous focusable node's visual position. | Reorder composables so focus follows the visual reading order, or set explicit traversal order with semantics. | WCAG 2.4.3 Focus Order (Level A) |
@@ -16,27 +16,26 @@ Implementation note: the current codebase exposes 7 built-in rules, not 8. This 
 | `image-text-overlay` | Image With Text Overlay | Warning | Text nodes that significantly overlap image nodes, creating a contrast risk across dynamic images. | Add a scrim or solid text background, or otherwise guarantee sufficient contrast for every image state. | WCAG 1.4.3 Contrast Minimum (Level AA) |
 | `clickable-role` | Clickable Role | Error | Clickable/touch target nodes that do not expose a semantic role, and clickable image roles without a content description. | Add the appropriate role, such as `Role.Button`, `Role.Checkbox`, or `Role.Image`; provide labels for clickable images. | WCAG 4.1.2 Name, Role, Value (Level A) |
 
-## `touch-target-size` - Touch Target Size
+## `touch-target-overlap` - Touch Target Overlap
 
-**Severity:** Error
+**Severity:** Warning
 
-**What it checks:** This rule evaluates clickable/touch target nodes that are not merged descendants. It reports a node when either its measured width or height is smaller than `ScannerConfig.minTouchTargetDp`, which defaults to 48dp.
+**What it checks:** This scan-level rule compares `touchBoundsInRoot` for clickable nodes that are not merged descendants. It reports each affected node once when its effective pointer target intersects one or more other effective targets. Targets that only share an edge are not considered overlapping.
 
-**How to fix:** Ensure the interactive area reaches the minimum size in both dimensions. Prefer Material's `Modifier.minimumInteractiveComponentSize()` for Material controls, or add padding around custom controls.
+**How to fix:** Increase the layout spacing between controls, give controls layout bounds that accommodate their expanded hit regions, or restructure the layout so each action has an unambiguous pointer target.
 
-**WCAG reference:** WCAG 2.5.5 Target Size (Level AA)
+**Reference:** Android accessibility touch-target guidance. This warning is not presented as a direct WCAG failure because WCAG target-size criteria include different thresholds and exceptions.
 
 **Code example:**
 
 ```kotlin
-IconButton(
-    onClick = onClose,
-    modifier = Modifier.minimumInteractiveComponentSize(),
-) {
-    Icon(
-        imageVector = Icons.Default.Close,
-        contentDescription = "Close",
-    )
+Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    IconButton(onClick = onPrevious) {
+        Icon(Icons.Default.ArrowBack, contentDescription = "Previous")
+    }
+    IconButton(onClick = onNext) {
+        Icon(Icons.Default.ArrowForward, contentDescription = "Next")
+    }
 }
 ```
 

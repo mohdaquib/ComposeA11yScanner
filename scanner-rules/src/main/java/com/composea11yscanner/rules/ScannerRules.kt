@@ -10,7 +10,7 @@ object ScannerRules {
 
     /** Returns every built-in rule id understood by [buildRules]. */
     fun allRuleIds(): List<String> = listOf(
-        "touch-target-size",
+        "touch-target-overlap",
         "missing-content-description",
         "duplicate-content-description",
         "focus-order",
@@ -27,8 +27,8 @@ object ScannerRules {
      * @return Rule instances that should run for the provided configuration.
      */
     fun buildRules(config: ScannerConfig, screenDensity: Float): List<A11yRule> = buildList {
-        if ("touch-target-size" in config.enabledRules)
-            add(TouchTargetRule(config.minTouchTargetDp))
+        if ("touch-target-overlap" in config.enabledRules)
+            add(TouchTargetOverlapRule())
         if ("missing-content-description" in config.enabledRules)
             add(MissingContentDescriptionRule())
         if ("duplicate-content-description" in config.enabledRules)

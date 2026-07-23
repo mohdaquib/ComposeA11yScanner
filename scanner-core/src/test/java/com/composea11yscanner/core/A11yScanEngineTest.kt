@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.composea11yscanner.core.model.A11yIssue
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
-import com.composea11yscanner.core.model.DpSize
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.core.model.ScannerConfig
 import com.composea11yscanner.core.model.ScannerState
@@ -29,7 +28,6 @@ class A11yScanEngineTest {
         bounds = Rect(0, 0, 100, 100),
         contentDescription = null,
         isTouchTarget = false,
-        touchTargetSize = DpSize(48f, 48f),
         textColor = null,
         backgroundColors = emptyList(),
         isFocusable = false,

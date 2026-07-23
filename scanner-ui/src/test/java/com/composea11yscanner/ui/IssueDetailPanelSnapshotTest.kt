@@ -83,12 +83,12 @@ class IssueDetailPanelSnapshotTest {
                             wcagReference = "WCAG 4.1.2 Name, Role, Value (Level A)",
                         ),
                         issueFixture(
-                            severity = A11ySeverity.Error,
-                            issueId = "touch-target-size",
-                            ruleName = "Touch Target Size",
-                            message = "Touch target is 28x28dp. Minimum required is 48x48dp.",
-                            howToFix = "Apply Modifier.minimumInteractiveComponentSize() or add padding.",
-                            wcagReference = "WCAG 2.5.5 Target Size (Level AA)",
+                            severity = A11ySeverity.Warning,
+                            issueId = "touch-target-overlap",
+                            ruleName = "Touch Target Overlap",
+                            message = "Effective touch target overlaps another target.",
+                            howToFix = "Increase spacing so effective touch regions do not overlap.",
+                            wcagReference = null,
                         ),
                         issueFixture(
                             severity = A11ySeverity.Warning,
