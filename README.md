@@ -8,92 +8,113 @@ Runtime accessibility scanner that overlays issues directly on your Compose UI
 
 ![Annotated GIF showing the Compose A11y Scanner issue summary, view highlights, and issue detail sheet in the sample app](docs/overlay-demo.gif)
 
-## Architecture
+## Quick start
 
-```mermaid
-flowchart LR
-    SemanticsTree["SemanticsTree"] --> Extractor[":scanner-ui<br/>A11yNodeExtractor"]
-    Extractor --> ColorExtractor["ColorExtractor"]
-    ColorExtractor --> Nodes["A11yNode list"]
-    Extractor --> Nodes
-    Nodes --> Core[":scanner-core<br/>A11yScanEngine"]
-    Rules[":scanner-rules<br/>Built-in A11yRule implementations"] --> Core
-    Core --> Result["ScanResult / ScannerState"]
-    Result --> Overlay[":scanner-ui<br/>Overlay, summary, report sheet"]
-```
-
-`:scanner-core` owns the scan engine, models, result state, and `A11yRule` contract. `:scanner-rules` contains the built-in rules. `:scanner-ui` reads the Compose semantics tree, samples colors through `ColorExtractor`, runs scans, and draws issue overlays on top of the host UI.
-
-## Installation
+Add JitPack and the debug-only scanner dependency:
 
 ```kotlin
-repositories { maven("https://jitpack.io") }
-dependencies { debugImplementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:v1.0.0") }
-```
-
-Use a debug-only dependency because the scanner is intended for development builds. `:scanner-ui` brings `:scanner-core` and `:scanner-rules` transitively.
-
-## Integration
-
-### A11yScannerScaffold
-
-Wrap the screen you want to inspect with `A11yScannerScaffold`. Provide an `A11yScannerController` that can extract nodes from your current Compose semantics tree.
-
-```kotlin
-@Composable
-fun DebugScannerScreen(
-    scannerController: A11yScannerController,
-    content: @Composable () -> Unit,
-) {
-    val config = remember {
-        ScannerConfig(
-            enabledRules = ScannerRules.allRuleIds().toSet(),
-            autoScan = false,
-        )
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
     }
+}
 
-    A11yScannerScaffold(
-        scannerController = scannerController,
-        config = config,
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        content()
-    }
+// app/build.gradle.kts
+dependencies {
+    debugImplementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:v1.0.0")
 }
 ```
 
-The scaffold renders your content first, then draws issue highlight boxes, the scan summary bar, and the issue detail sheet above it.
+That is all the integration required. AndroidX Startup automatically attaches the overlay and runs an initial scan for each `ComponentActivity` in a debuggable app. Release builds do not package the scanner when it is added with `debugImplementation`.
 
-### Shake To Scan
-
-Call `scanOnShake()` from a composable that is active while the scanned screen is visible.
+To request another scan, call the API from a debug source set (for example, `src/debug/java/.../ScannerActions.kt`):
 
 ```kotlin
-scanOnShake(
-    enabled = true,
-    onScanRequested = {
-        scannerController.startScan()
-    },
+import com.composea11yscanner.ComposeA11yScanner
+
+ComposeA11yScanner.triggerScan()
+```
+
+For shake-to-scan, add one call to a debug-only composable that is active while the screen is visible:
+
+```kotlin
+import com.composea11yscanner.triggers.scanOnShake
+
+@Composable
+fun App() {
+    scanOnShake()
+    AppContent()
+}
+```
+
+The scanner enables all built-in rules by default. The overlay is removed automatically when its activity is destroyed. Keep direct scanner imports in `src/debug`; a `debugImplementation` dependency is intentionally unavailable while compiling release sources.
+
+## Configuration
+
+Optional manifest metadata configures the auto-installed scanner:
+
+```xml
+<application>
+    <meta-data
+        android:name="a11y_scanner_min_contrast"
+        android:value="4.5" />
+    <meta-data
+        android:name="a11y_scanner_auto_scan"
+        android:value="false" />
+</application>
+```
+
+### Manual installation
+
+Use manual installation only when you need a programmatic `ScannerConfig`. First disable the automatic initializer in the app manifest:
+
+```xml
+<manifest xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="merge">
+            <meta-data
+                android:name="com.composea11yscanner.A11yScannerInitializer"
+                tools:node="remove" />
+        </provider>
+    </application>
+</manifest>
+```
+
+Then install after `setContent`:
+
+```kotlin
+setContent { App() }
+
+ComposeA11yScanner.install(
+    activity = this,
+    config = ScannerConfig(
+        enabledRules = ScannerRules.allRuleIds().toSet(),
+        minContrastRatio = 4.5f,
+        autoScan = false,
+    ),
 )
 ```
 
-### Manual Trigger
+Do not combine automatic and manual installation. Repeated installation on the same activity is ignored, but keeping one ownership path makes configuration predictable.
 
-Wire a debug menu item, toolbar button, or test-only action directly to the controller.
+### Embedded scaffold
+
+`A11yScannerScaffold` is the advanced API for apps that want the scanner UI inside their own Compose hierarchy or need a custom node provider. It requires an `A11yScannerController`; most integrations should use the automatic activity overlay above.
 
 ```kotlin
-IconButton(onClick = { scannerController.startScan() }) {
-    Icon(
-        imageVector = Icons.Default.Search,
-        contentDescription = "Scan accessibility",
-    )
+A11yScannerScaffold(
+    scannerController = scannerController,
+    config = config,
+    modifier = Modifier.fillMaxSize(),
+) {
+    AppContent()
 }
-```
-
-If you use the top-level activity overlay API, call `ComposeA11yScanner.triggerScan()` instead.
-
-```kotlin
-ComposeA11yScanner.triggerScan()
 ```
 
 ## Built-In Rules
@@ -149,3 +170,17 @@ val scannerController = A11yScannerController(
 ```
 
 Custom rule IDs are automatically enabled by `A11yScannerController.withRules(...)` before each scan.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    SemanticsTree["SemanticsTree"] --> Extractor[":scanner-ui<br/>A11yNodeExtractor"]
+    Extractor --> Nodes["A11yNode list"]
+    Nodes --> Core[":scanner-core<br/>A11yScanEngine"]
+    Rules[":scanner-rules<br/>Built-in and custom rules"] --> Core
+    Core --> Result["ScanResult / ScannerState"]
+    Result --> Overlay[":scanner-ui<br/>Overlay and issue details"]
+```
+
+`:scanner-core` owns the scan engine and public models. `:scanner-rules` contains built-in rules. `:scanner-ui` handles Android/Compose integration, node extraction, triggers, and the overlay.
