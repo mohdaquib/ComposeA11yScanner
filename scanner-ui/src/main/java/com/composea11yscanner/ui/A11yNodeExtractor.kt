@@ -97,6 +97,9 @@ class A11yNodeExtractor {
             isMergedDescendant = isMergedDescendant,
             depth = depth,
             role = if (isTextInput) A11yRole.TextField else composeRole?.toA11yRole(),
+            effectiveTouchBounds = touchBoundsInRoot
+                .takeIf { isTouchTarget }
+                ?.toCoreRect(),
         )
     }
 

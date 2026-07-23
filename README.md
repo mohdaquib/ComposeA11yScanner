@@ -102,6 +102,7 @@ See [RULES.md](RULES.md) for complete behavior, fixes, WCAG references, and exam
 
 | Rule ID | Name | Severity | Details |
 | --- | --- | --- | --- |
+| `touch-target-overlap` | Touch Target Overlap | Warning | [RULES.md](RULES.md#touch-target-overlap---touch-target-overlap) |
 | `missing-content-description` | Missing Content Description | Error | [RULES.md](RULES.md#missing-content-description---missing-content-description) |
 | `duplicate-content-description` | Duplicate Content Description | Warning | [RULES.md](RULES.md#duplicate-content-description---duplicate-content-description) |
 | `focus-order` | Focus Order | Error | [RULES.md](RULES.md#focus-order---focus-order) |
