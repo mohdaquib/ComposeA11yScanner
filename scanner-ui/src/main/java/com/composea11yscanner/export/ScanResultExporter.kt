@@ -99,6 +99,8 @@ object ScanResultExporter {
         append(", ")
         appendJsonPair("isTouchTarget", isTouchTarget)
         append(", ")
+        appendJsonNullablePair("effectiveTouchBounds", effectiveTouchBounds)
+        append(", ")
         appendJsonPair("textColor", textColor)
         append(", ")
         append("\"backgroundColors\": [")
@@ -176,6 +178,13 @@ object ScanResultExporter {
         append(name.escapeJson())
         append("\": ")
         append(value.toJson())
+    }
+
+    private fun StringBuilder.appendJsonNullablePair(name: String, value: Rect?) {
+        append("\"")
+        append(name.escapeJson())
+        append("\": ")
+        append(value?.toJson() ?: "null")
     }
 
     private fun StringBuilder.appendJsonPair(name: String, value: Color?) {

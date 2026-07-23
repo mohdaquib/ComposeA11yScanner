@@ -397,6 +397,13 @@ private fun IssueDetailPanelMultipleIssuesPreview() {
                 ),
                 previewIssue(
                     severity = A11ySeverity.Warning,
+                    ruleName = "Touch Target Overlap",
+                    message = "Effective touch target overlaps another target.",
+                    howToFix = "Increase spacing so effective touch regions do not overlap.",
+                    wcagReference = null,
+                ),
+                previewIssue(
+                    severity = A11ySeverity.Warning,
                     ruleName = "Missing Content Description",
                     message = "Interactive element has no content description.",
                     howToFix = "Add a meaningful contentDescription via semantics.",

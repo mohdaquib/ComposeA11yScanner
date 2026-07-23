@@ -13,6 +13,7 @@ fun createNode(
     bounds: Rect = Rect(0, 0, 100, 100),
     contentDescription: String? = null,
     isTouchTarget: Boolean = false,
+    effectiveTouchBounds: Rect? = null,
     textColor: Color? = null,
     backgroundColors: List<Color> = emptyList(),
     isFocusable: Boolean = false,
@@ -32,4 +33,5 @@ fun createNode(
     isMergedDescendant = isMergedDescendant,
     depth = depth,
     role = role,
+    effectiveTouchBounds = effectiveTouchBounds,
 )

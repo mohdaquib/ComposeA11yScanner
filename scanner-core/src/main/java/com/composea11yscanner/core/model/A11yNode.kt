@@ -8,6 +8,7 @@ package com.composea11yscanner.core.model
  * @property bounds Pixel bounds relative to the scanned root.
  * @property contentDescription Accessible label exposed by the node, if any.
  * @property isTouchTarget True when the node exposes a click action.
+ * @property effectiveTouchBounds Effective pointer target bounds in root pixels for clickable nodes.
  * @property textColor Foreground text color when it can be extracted.
  * @property backgroundColors Candidate background colors sampled behind the node.
  * @property isFocusable True when the node can participate in focus traversal.
@@ -27,4 +28,5 @@ data class A11yNode(
     val isMergedDescendant: Boolean,
     val depth: Int,
     val role: A11yRole? = null,
+    val effectiveTouchBounds: Rect? = null,
 )

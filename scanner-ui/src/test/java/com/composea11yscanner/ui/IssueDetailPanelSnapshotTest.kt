@@ -84,6 +84,14 @@ class IssueDetailPanelSnapshotTest {
                         ),
                         issueFixture(
                             severity = A11ySeverity.Warning,
+                            issueId = "touch-target-overlap",
+                            ruleName = "Touch Target Overlap",
+                            message = "Effective touch target overlaps another target.",
+                            howToFix = "Increase spacing so effective touch regions do not overlap.",
+                            wcagReference = null,
+                        ),
+                        issueFixture(
+                            severity = A11ySeverity.Warning,
                             issueId = "missing-content-description",
                             ruleName = "Missing Content Description",
                             message = "Interactive element has no content description.",
