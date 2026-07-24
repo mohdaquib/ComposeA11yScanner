@@ -32,7 +32,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    debugImplementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:v1.0.0")
+    debugImplementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:v2.0.0")
 }
 ```
 
