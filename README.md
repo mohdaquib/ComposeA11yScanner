@@ -15,7 +15,7 @@ Runtime accessibility scanner that overlays issues directly on your Compose UI
 
 ComposeA11yScanner was featured in  **Jetpack Compose Newsletter** and **Android Weekly** 🎉
 
-[![Featured in Jetpack Compose Newletter](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23324-blue?logo=Jetpack+Compose&logoColor=white)]
+[![Featured in Jetpack Compose Newletter](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23324-blue?logo=Jetpack+Compose&logoColor=white)
 
 [![Featured in Android Weekly](https://androidweekly.net/issues/issue-736/badge)](https://androidweekly.net/issues/issue-736/#:~:text=Compose%20A11y%20Scanner,touch%20target%20issues.)
 
