@@ -1,6 +1,7 @@
 # Compose A11y Scanner
 
 [![Featured in Android Weekly](https://androidweekly.net/issues/issue-736/badge)](https://androidweekly.net/issues/issue-736/#:~:text=Compose%20A11y%20Scanner,touch%20target%20issues.)
+[![Featured in Jetpack Compose Newletter](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23324-blue?logo=Jetpack+Compose&logoColor=white)](https://jetc.dev/#:~:text=GitHub%3A%20mohdaquib%20/%20ComposeA11yScanner,content%20descriptions%2C%20etc.)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Build and Test](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/ci.yml/badge.svg)](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/ci.yml)
 [![API Docs](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/docs.yml/badge.svg)](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/docs.yml)
@@ -12,7 +13,9 @@ Runtime accessibility scanner that overlays issues directly on your Compose UI
 
 ## 🏆 Featured
 
-ComposeA11yScanner was featured in **Android Weekly** 🎉
+ComposeA11yScanner was featured in  **Jetpack Compose Newsletter** and **Android Weekly** 🎉
+
+[![Featured in Jetpack Compose Newletter](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23324-blue?logo=Jetpack+Compose&logoColor=white)]
 
 [![Featured in Android Weekly](https://androidweekly.net/issues/issue-736/badge)](https://androidweekly.net/issues/issue-736/#:~:text=Compose%20A11y%20Scanner,touch%20target%20issues.)
 
