@@ -20,11 +20,12 @@ class DuplicateContentDescriptionRule : BaseScanRule() {
     /** WCAG criterion associated with distinguishable labels. */
     override val wcagReference = "WCAG 2.4.6 Headings and Labels (Level AA)"
 
-    /** Evaluates all nodes together to find repeated labels at the same depth. */
+    /** Evaluates all nodes together to find repeated labels among semantic siblings. */
     override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> =
         nodes
+            .asSequence()
             .filter { !it.contentDescription.isNullOrBlank() && !it.isMergedDescendant }
-            .groupBy { it.depth to it.contentDescription }
+            .groupBy { it.parentNodeId to it.contentDescription }
             .filter { (_, group) -> group.size > 1 }
             .flatMap { (key, group) ->
                 val text = key.second
@@ -38,4 +39,5 @@ class DuplicateContentDescriptionRule : BaseScanRule() {
                     )
                 }
             }
+            .toList()
 }

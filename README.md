@@ -49,6 +49,10 @@ import com.composea11yscanner.ComposeA11yScanner
 ComposeA11yScanner.triggerScan()
 ```
 
+`ComposeA11yScanner.scan()` is safe to collect before the first activity reaches `onResume` when
+automatic installation is enabled. The flow waits for an installed activity scanner and then
+forwards its state.
+
 For shake-to-scan, add one call to a debug-only composable that is active while the screen is visible:
 
 ```kotlin

@@ -14,6 +14,8 @@ package com.composea11yscanner.core.model
  * @property isFocusable True when the node can participate in focus traversal.
  * @property isMergedDescendant True when the node is inside a parent that merges semantics.
  * @property depth Depth in the semantics tree.
+ * @property parentNodeId Id of the immediate parent in the unmerged semantics tree, or null for
+ * the root. Rules use this to distinguish true siblings from unrelated nodes at the same depth.
  * @property role Accessibility role mapped from the platform semantics role, if any.
  */
 data class A11yNode(
@@ -29,4 +31,5 @@ data class A11yNode(
     val depth: Int,
     val role: A11yRole? = null,
     val effectiveTouchBounds: Rect? = null,
+    val parentNodeId: String? = null,
 )

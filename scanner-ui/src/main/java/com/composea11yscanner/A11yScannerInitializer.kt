@@ -27,6 +27,9 @@ class A11yScannerInitializer : Initializer<Unit> {
      */
     override fun create(context: Context) {
         val appContext = context.applicationContext
+        // Seed the context before the debug check so public API calls can distinguish a release
+        // build from an early call made before the first activity controller is installed.
+        ComposeA11yScanner.initialize(appContext)
         if (!appContext.isDebuggable()) return
 
         val application = appContext as? Application ?: return

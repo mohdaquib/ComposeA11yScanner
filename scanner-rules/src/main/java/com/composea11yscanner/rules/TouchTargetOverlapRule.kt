@@ -19,13 +19,18 @@ class TouchTargetOverlapRule : BaseScanRule() {
             node.isTouchTarget &&
                 !node.isMergedDescendant &&
                 node.effectiveTouchBounds?.isEmpty() == false
-        }
+        }.distinctBy { it.logicalIdentity() }
         val overlapsByNodeId = mutableMapOf<String, MutableSet<String>>()
 
         targets.forEachIndexed { index, first ->
             for (secondIndex in index + 1 until targets.size) {
                 val second = targets[secondIndex]
                 if (!first.effectiveTouchBounds!!.overlaps(second.effectiveTouchBounds!!)) continue
+                // Compose may expand a small control's touch bounds beyond its visual bounds to
+                // meet the minimum target size. Adjacent controls can therefore have intersecting
+                // effective rectangles even though they remain distinct hit targets. Only report
+                // overlap when the actual layout bounds intersect too.
+                if (!first.bounds.overlaps(second.bounds)) continue
 
                 overlapsByNodeId.getOrPut(first.nodeId) { mutableSetOf() }.add(second.nodeId)
                 overlapsByNodeId.getOrPut(second.nodeId) { mutableSetOf() }.add(first.nodeId)
@@ -45,6 +50,14 @@ class TouchTargetOverlapRule : BaseScanRule() {
         }
     }
 }
+
+private fun A11yNode.logicalIdentity(): List<Any?> = listOf(
+    composableName,
+    bounds,
+    effectiveTouchBounds,
+    contentDescription,
+    role,
+)
 
 private fun Rect.overlaps(other: Rect): Boolean =
     left < other.right &&

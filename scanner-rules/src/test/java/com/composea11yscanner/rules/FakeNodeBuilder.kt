@@ -21,6 +21,7 @@ fun createNode(
     depth: Int = 0,
     role: A11yRole? = null,
     nodeId: String = "node-${nodeIdSeq.incrementAndGet()}",
+    parentNodeId: String? = null,
 ): A11yNode = A11yNode(
     nodeId = nodeId,
     composableName = composableName,
@@ -34,4 +35,5 @@ fun createNode(
     depth = depth,
     role = role,
     effectiveTouchBounds = effectiveTouchBounds,
+    parentNodeId = parentNodeId,
 )
