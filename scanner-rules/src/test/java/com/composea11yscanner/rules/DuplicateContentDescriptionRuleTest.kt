@@ -1,6 +1,7 @@
 package com.composea11yscanner.rules
 
 import com.composea11yscanner.core.model.A11ySeverity
+import com.composea11yscanner.core.model.Rect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -29,8 +30,8 @@ class DuplicateContentDescriptionRuleTest {
     @Test
     fun `same description at different depths is not a duplicate`() {
         val nodes = listOf(
-            createNode(depth = 1, contentDescription = "Submit"),
-            createNode(depth = 2, contentDescription = "Submit"),
+            createNode(parentNodeId = "toolbar", depth = 1, contentDescription = "Submit"),
+            createNode(parentNodeId = "dialog", depth = 2, contentDescription = "Submit"),
         )
         assertTrue(rule.evaluateAll(nodes).isEmpty())
     }
@@ -65,20 +66,20 @@ class DuplicateContentDescriptionRuleTest {
     // --- failing cases ---
 
     @Test
-    fun `two nodes with same description at same depth produce two issues`() {
+    fun `two siblings with same description produce two issues`() {
         val nodes = listOf(
-            createNode(depth = 1, contentDescription = "Submit"),
-            createNode(depth = 1, contentDescription = "Submit"),
+            createNode(depth = 1, bounds = Rect(0, 0, 100, 100), contentDescription = "Submit"),
+            createNode(depth = 1, bounds = Rect(100, 0, 200, 100), contentDescription = "Submit"),
         )
         assertEquals(2, rule.evaluateAll(nodes).size)
     }
 
     @Test
-    fun `three nodes with same description at same depth produce three issues`() {
+    fun `three siblings with same description produce three issues`() {
         val nodes = listOf(
-            createNode(depth = 1, contentDescription = "Delete"),
-            createNode(depth = 1, contentDescription = "Delete"),
-            createNode(depth = 1, contentDescription = "Delete"),
+            createNode(depth = 1, bounds = Rect(0, 0, 100, 100), contentDescription = "Delete"),
+            createNode(depth = 1, bounds = Rect(100, 0, 200, 100), contentDescription = "Delete"),
+            createNode(depth = 1, bounds = Rect(200, 0, 300, 100), contentDescription = "Delete"),
         )
         assertEquals(3, rule.evaluateAll(nodes).size)
     }
@@ -88,9 +89,9 @@ class DuplicateContentDescriptionRuleTest {
     @Test
     fun `only the duplicate group is flagged, non-duplicates are clean`() {
         val nodes = listOf(
-            createNode(depth = 1, contentDescription = "Submit"),
-            createNode(depth = 1, contentDescription = "Submit"),
-            createNode(depth = 1, contentDescription = "Cancel"),
+            createNode(depth = 1, bounds = Rect(0, 0, 100, 100), contentDescription = "Submit"),
+            createNode(depth = 1, bounds = Rect(100, 0, 200, 100), contentDescription = "Submit"),
+            createNode(depth = 1, bounds = Rect(200, 0, 300, 100), contentDescription = "Cancel"),
         )
         val issues = rule.evaluateAll(nodes)
         assertEquals(2, issues.size)
@@ -100,8 +101,8 @@ class DuplicateContentDescriptionRuleTest {
     @Test
     fun `issue message contains the duplicated text`() {
         val nodes = listOf(
-            createNode(depth = 1, contentDescription = "Close dialog"),
-            createNode(depth = 1, contentDescription = "Close dialog"),
+            createNode(depth = 1, bounds = Rect(0, 0, 100, 100), contentDescription = "Close dialog"),
+            createNode(depth = 1, bounds = Rect(100, 0, 200, 100), contentDescription = "Close dialog"),
         )
         val issue = rule.evaluateAll(nodes).first()
         assertTrue(issue.message.contains("'Close dialog'"))
@@ -115,12 +116,47 @@ class DuplicateContentDescriptionRuleTest {
     @Test
     fun `issue carries correct rule metadata`() {
         val nodes = listOf(
-            createNode(depth = 1, contentDescription = "X"),
-            createNode(depth = 1, contentDescription = "X"),
+            createNode(depth = 1, bounds = Rect(0, 0, 100, 100), contentDescription = "X"),
+            createNode(depth = 1, bounds = Rect(100, 0, 200, 100), contentDescription = "X"),
         )
         val issue = rule.evaluateAll(nodes).first()
         assertEquals("duplicate-content-description", issue.ruleId)
         assertEquals(A11ySeverity.Warning, issue.severity)
         assertEquals("WCAG 2.4.6 Headings and Labels (Level AA)", issue.wcagReference)
+    }
+
+    @Test
+    fun `separate controls with the same label remain duplicates`() {
+        val first = createNode(
+            parentNodeId = "toolbar",
+            depth = 1,
+            bounds = Rect(0, 0, 100, 100),
+            contentDescription = "Open item",
+        )
+        val second = first.copy(
+            nodeId = "second",
+            bounds = Rect(110, 0, 210, 100),
+        )
+
+        assertEquals(2, rule.evaluateAll(listOf(first, second)).size)
+    }
+
+    @Test
+    fun `same product label in different collection parents is not a duplicate`() {
+        val androidPicks = createNode(
+            nodeId = "android-picks-cupcake",
+            parentNodeId = "android-picks-row",
+            depth = 8,
+            bounds = Rect(66, 528, 534, 1216),
+            contentDescription = "Cupcake A tag line",
+            isTouchTarget = true,
+        )
+        val wfhFavourites = androidPicks.copy(
+            nodeId = "wfh-favourites-cupcake",
+            parentNodeId = "wfh-favourites-row",
+            bounds = Rect(66, 2052, 534, 2060),
+        )
+
+        assertTrue(rule.evaluateAll(listOf(androidPicks, wfhFavourites)).isEmpty())
     }
 }

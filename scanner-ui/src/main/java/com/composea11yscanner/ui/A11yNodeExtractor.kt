@@ -31,7 +31,13 @@ class A11yNodeExtractor {
      */
     fun extract(rootNode: SemanticsNode): List<A11yNode> {
         val result = mutableListOf<A11yNode>()
-        visit(node = rootNode, depth = 0, isParentMerging = false, result = result)
+        visit(
+            node = rootNode,
+            parentNodeId = null,
+            depth = 0,
+            isParentMerging = false,
+            result = result,
+        )
         return result
     }
 
@@ -49,21 +55,38 @@ class A11yNodeExtractor {
 
     private fun visit(
         node: SemanticsNode,
+        parentNodeId: String?,
         depth: Int,
         isParentMerging: Boolean,
         result: MutableList<A11yNode>,
     ) {
-        result.add(node.toA11yNode(depth = depth, isMergedDescendant = isParentMerging))
+        result.add(
+            node.toA11yNode(
+                parentNodeId = parentNodeId,
+                depth = depth,
+                isMergedDescendant = isParentMerging,
+            ),
+        )
         // Children of a merging node are merged descendants; propagate the flag downward.
         val mergingForChildren = isParentMerging || node.config.isMergingSemanticsOfDescendants
         node.children.forEach { child ->
-            visit(node = child, depth = depth + 1, isParentMerging = mergingForChildren, result = result)
+            visit(
+                node = child,
+                parentNodeId = node.id.toString(),
+                depth = depth + 1,
+                isParentMerging = mergingForChildren,
+                result = result,
+            )
         }
     }
 
     // --- mapping ---
 
-    private fun SemanticsNode.toA11yNode(depth: Int, isMergedDescendant: Boolean): A11yNode {
+    private fun SemanticsNode.toA11yNode(
+        parentNodeId: String?,
+        depth: Int,
+        isMergedDescendant: Boolean,
+    ): A11yNode {
         val composeRole = config.getOrNull(SemanticsProperties.Role)
         val isTextInput = config.contains(SemanticsActions.SetText)
         val isTouchTarget = config.contains(SemanticsActions.OnClick)
@@ -100,6 +123,7 @@ class A11yNodeExtractor {
             effectiveTouchBounds = touchBoundsInRoot
                 .takeIf { isTouchTarget }
                 ?.toCoreRect(),
+            parentNodeId = parentNodeId,
         )
     }
 

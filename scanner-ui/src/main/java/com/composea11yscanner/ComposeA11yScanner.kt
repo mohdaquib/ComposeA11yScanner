@@ -41,7 +41,9 @@ import com.composea11yscanner.ui.A11yScannerController
 import com.composea11yscanner.ui.IssueDetailPanel
 import com.composea11yscanner.ui.ScanSummaryBar
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 
 /**
  * Top-level public API for the Compose Accessibility Scanner.
@@ -79,6 +81,12 @@ object ComposeA11yScanner {
 
     /** Set during [install] so that [scan] can perform the debug-build check without a [Context]. */
     @Volatile private var cachedAppContext: Context? = null
+
+    /**
+     * Controller for the most recently installed activity. Keeping this as state allows callers
+     * to subscribe before the automatic activity-resume installation has completed.
+     */
+    private val activeController = MutableStateFlow<A11yScannerController?>(null)
 
     // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -121,6 +129,7 @@ object ComposeA11yScanner {
         activity.addContentView(overlayView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         entries[activity] = InstallEntry(controller, overlayView)
+        activeController.value = controller
         activity.lifecycle.addObserver(AutoUninstallObserver(activity))
     }
 
@@ -138,19 +147,25 @@ object ComposeA11yScanner {
     fun uninstall(activity: ComponentActivity) {
         requireDebugBuild(activity)
         entries.remove(activity)?.detach()
+        activeController.value = entries.values.lastOrNull()?.controller
     }
 
     /**
      * Returns a [Flow] of [ScannerState] for the most recently installed activity.
      *
      * The backing [kotlinx.coroutines.flow.SharedFlow] has `replay = 1`, so late subscribers
-     * immediately receive the current state. Returns an empty flow when no scanner is installed.
+     * immediately receive the current state. The returned flow can be collected before automatic
+     * installation; it begins forwarding state when an activity scanner becomes available.
      *
-     * @throws IllegalStateException in non-debug builds or if called before [install].
+     * @throws IllegalStateException in non-debug builds, or when automatic initialization is
+     * disabled and this is called before [install].
      */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun scan(): Flow<ScannerState> {
         requireDebugBuild()
-        return entries.values.lastOrNull()?.controller?.stateFlow ?: emptyFlow()
+        return activeController.flatMapLatest { controller ->
+            controller?.stateFlow ?: emptyFlow()
+        }
     }
 
     /**
@@ -159,7 +174,8 @@ object ComposeA11yScanner {
      * This is useful for consumer-side triggers such as long press, shake, or debug menu actions.
      * Returns an empty flow when no scanner is installed.
      *
-     * @throws IllegalStateException in non-debug builds or if called before [install].
+     * @throws IllegalStateException in non-debug builds, or when automatic initialization is
+     * disabled and this is called before [install].
      */
     fun triggerScan(): Flow<ScannerState> {
         requireDebugBuild()
@@ -175,6 +191,11 @@ object ComposeA11yScanner {
                     "Remove all ComposeA11yScanner calls before shipping to production.",
             )
         }
+    }
+
+    /** Seeds the application context before activity installation when AndroidX Startup is used. */
+    internal fun initialize(context: Context) {
+        cachedAppContext = context.applicationContext
     }
 
     // Overload for scan(), which has no Context parameter.
@@ -249,6 +270,7 @@ object ComposeA11yScanner {
         override fun onDestroy(owner: LifecycleOwner) {
             // entries[activity] may already be null if uninstall() was called manually first.
             entries.remove(activity)?.detach()
+            activeController.value = entries.values.lastOrNull()?.controller
         }
     }
 }

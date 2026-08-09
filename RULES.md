@@ -8,9 +8,9 @@ Implementation note: the current codebase exposes 6 built-in rules. This documen
 
 | Rule ID | Name | Severity | What It Checks | How To Fix | WCAG Reference |
 | --- | --- | --- | --- | --- | --- |
-| `touch-target-overlap` | Touch Target Overlap | Warning | Interactive nodes whose effective Compose touch bounds overlap another effective target. | Increase spacing, enlarge layout bounds, or restructure controls so their effective hit regions do not overlap. | Android accessibility guidance |
+| `touch-target-overlap` | Touch Target Overlap | Warning | Distinct interactive nodes whose effective Compose touch bounds and visual layout bounds overlap. | Increase spacing, enlarge layout bounds, or restructure controls so their hit regions do not overlap. | Android accessibility guidance |
 | `missing-content-description` | Missing Content Description | Error | Interactive nodes and image-like nodes that do not expose a non-empty content description. | Add a meaningful `contentDescription` through semantics, or pass one directly to image composables that support it. | WCAG 1.1.1 Non-text Content (Level A) |
-| `duplicate-content-description` | Duplicate Content Description | Warning | Non-merged nodes at the same semantics depth that reuse the same non-empty content description. | Give each control or item a label that identifies its specific action, state, or content. | WCAG 2.4.6 Headings and Labels (Level AA) |
+| `duplicate-content-description` | Duplicate Content Description | Warning | Distinct sibling nodes under the same semantics parent that reuse the same non-empty content description. | Give each control or item a label that identifies its specific action, state, or content. | WCAG 2.4.6 Headings and Labels (Level AA) |
 | `focus-order` | Focus Order | Error | Focusable nodes whose semantics traversal jumps upward compared with the previous focusable node's visual position. | Reorder composables so focus follows the visual reading order, or set explicit traversal order with semantics. | WCAG 2.4.3 Focus Order (Level A) |
 | `text-scaling` | Text Scaling | Warning | Text nodes that may overflow or clip inside their parent when simulated at a larger font scale. | Avoid fixed-height containers for text; use flexible height, wrapping, or scrolling so scaled text can reflow. | WCAG 1.4.4 Resize Text (Level AA) |
 | `image-text-overlay` | Image With Text Overlay | Warning | Text nodes that significantly overlap image nodes, creating a contrast risk across dynamic images. | Add a scrim or solid text background, or otherwise guarantee sufficient contrast for every image state. | WCAG 1.4.3 Contrast Minimum (Level AA) |
@@ -20,7 +20,7 @@ Implementation note: the current codebase exposes 6 built-in rules. This documen
 
 **Severity:** Warning
 
-**What it checks:** This scan-level rule compares `touchBoundsInRoot` for clickable nodes that are not merged descendants. It reports each affected node once when its effective pointer target intersects one or more other effective targets. Targets that only share an edge are not considered overlapping.
+**What it checks:** This scan-level rule compares `touchBoundsInRoot` for distinct clickable nodes that are not merged descendants. It reports each affected node once when both the effective pointer targets and visual layout bounds overlap. Targets that only share an edge, minimum-size touch expansions around visually separate controls, and identical transition copies are not reported.
 
 **How to fix:** Increase the layout spacing between controls, give controls layout bounds that accommodate their expanded hit regions, or restructure the layout so each action has an unambiguous pointer target.
 
@@ -74,7 +74,7 @@ Box(
 
 **Severity:** Warning
 
-**What it checks:** This rule groups non-merged nodes by semantics depth and content description. It reports nodes when more than one node at the same depth has the same non-empty content description.
+**What it checks:** This rule groups distinct non-merged sibling nodes by their immediate semantics parent and content description. It reports nodes when more than one logical child of the same container has the same non-empty description. Repeated content in different sections or collections is not reported merely because it occurs at the same tree depth.
 
 **How to fix:** Make labels specific enough for a screen reader user to distinguish each item or action. Include item names, destinations, or state where needed.
 

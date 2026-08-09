@@ -91,6 +91,8 @@ object ScanResultExporter {
         append("{")
         appendJsonPair("nodeId", nodeId)
         append(", ")
+        appendJsonPair("parentNodeId", parentNodeId)
+        append(", ")
         appendJsonPair("composableName", composableName)
         append(", ")
         appendJsonPair("bounds", bounds)
