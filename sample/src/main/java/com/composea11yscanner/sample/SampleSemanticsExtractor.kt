@@ -11,6 +11,7 @@ import androidx.compose.ui.semantics.getOrNull
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.ui.A11yNodeExtractor
+import com.composea11yscanner.ui.RenderedTextContrastAnalyzer
 import kotlin.math.roundToInt
 
 internal const val BrokenSampleContentTag = "broken-sample-content"
@@ -32,8 +33,8 @@ internal fun ComponentActivity.extractBrokenSampleNodes(): List<A11yNode> =
             ?: sampleRoot.boundsInRoot.let {
                 Rect(it.left.roundToInt(), it.top.roundToInt(), it.right.roundToInt(), it.bottom.roundToInt())
             }
-        A11yNodeExtractor()
-            .extract(sampleRoot)
+        RenderedTextContrastAnalyzer(hostView)
+            .analyze(A11yNodeExtractor().extract(sampleRoot))
             .filterVisibleIn(viewport)
     }.getOrDefault(emptyList())
 

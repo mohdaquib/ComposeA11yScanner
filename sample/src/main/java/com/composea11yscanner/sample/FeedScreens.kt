@@ -38,7 +38,8 @@ fun BrokenFeedScreen(onViewFixed: (() -> Unit)? = null) {
         title = "Market Pulse",
         subtitle = "Live financial news and price movers",
     ) {
-        MarketFilters()
+        TextContrastExample(isFixed = false)
+        MarketFilters(isFixed = false)
 
         FinancialNewsCard(
             monogram = "A",
@@ -76,11 +77,12 @@ fun FixedFeedScreen(onViewBroken: (() -> Unit)? = null) {
         title = "Market Pulse",
         subtitle = "Accessible financial news and price movers",
     ) {
-        MarketFilters()
+        TextContrastExample(isFixed = true)
+        MarketFilters(isFixed = true)
 
         FixedFinancialNewsCard(
             monogram = "A",
-            logoColor = Color(0xFF6C63FF),
+            logoColor = Color(0xFF5A52D5),
             headline = "Apex Bank rallies as mobile deposits hit quarterly record",
             priceChange = "+4.8%",
             isPositive = true,
@@ -91,7 +93,7 @@ fun FixedFeedScreen(onViewBroken: (() -> Unit)? = null) {
         )
         FixedFinancialNewsCard(
             monogram = "N",
-            logoColor = Color(0xFFFF4D6A),
+            logoColor = Color(0xFFC62F4B),
             headline = "NovaPay slips after analysts flag rising card loss reserves",
             priceChange = "-2.1%",
             isPositive = false,
@@ -110,9 +112,29 @@ fun FixedFeedScreen(onViewBroken: (() -> Unit)? = null) {
 }
 
 @Composable
-private fun MarketFilters() {
+private fun TextContrastExample(isFixed: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(12.dp),
+    ) {
+        Text(
+            text = "Today's market summary",
+            color = if (isFixed) Color(0xFF424242) else Color(0xFFB0B0B0),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+private fun MarketFilters(isFixed: Boolean) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        MarketFilterChip("All", selected = true)
+        MarketFilterChip(
+            label = "All",
+            selected = true,
+            selectedContainerColor = if (isFixed) Color(0xFF5A52D5) else Color(0xFF6C63FF),
+        )
         MarketFilterChip("Stocks", selected = false)
         MarketFilterChip("Crypto", selected = false)
     }
@@ -291,7 +313,11 @@ private fun FinancialNewsContent(
         ) {
             Text(
                 text = priceChange,
-                color = if (isPositive) Color(0xFF00D4AA) else Color(0xFFFF4D6A),
+                color = when {
+                    isPositive -> Color(0xFF00D4AA)
+                    useScrim -> Color(0xFFFF8FA3)
+                    else -> Color(0xFFFF4D6A)
+                },
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
             )

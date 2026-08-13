@@ -1,6 +1,7 @@
 package com.composea11yscanner.rules
 
 import com.composea11yscanner.core.model.A11ySeverity
+import com.composea11yscanner.core.model.Rect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -33,6 +34,33 @@ class MissingContentDescriptionRuleTest {
             rule.evaluate(
                 createNode(isTouchTarget = true, contentDescription = null, isMergedDescendant = true)
             )
+        )
+    }
+
+    @Test
+    fun `zero-sized interactive node with no description is skipped`() {
+        assertNull(
+            rule.evaluate(
+                createNode(
+                    bounds = Rect.Zero,
+                    isTouchTarget = true,
+                    effectiveTouchBounds = Rect.Zero,
+                    contentDescription = null,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `partially visible interactive node with no description still fails`() {
+        assertNotNull(
+            rule.evaluate(
+                createNode(
+                    bounds = Rect(-10, 10, 20, 40),
+                    isTouchTarget = true,
+                    contentDescription = null,
+                ),
+            ),
         )
     }
 

@@ -22,6 +22,8 @@ fun createNode(
     role: A11yRole? = null,
     nodeId: String = "node-${nodeIdSeq.incrementAndGet()}",
     parentNodeId: String? = null,
+    isEnabled: Boolean = true,
+    isCollectionContainer: Boolean = false,
 ): A11yNode = A11yNode(
     nodeId = nodeId,
     composableName = composableName,
@@ -36,4 +38,6 @@ fun createNode(
     role = role,
     effectiveTouchBounds = effectiveTouchBounds,
     parentNodeId = parentNodeId,
+    isEnabled = isEnabled,
+    isCollectionContainer = isCollectionContainer,
 )

@@ -2,7 +2,7 @@
 
 Compose A11y Scanner ships the built-in rules registered by `ScannerRules.allRuleIds()`.
 
-Implementation note: the current codebase exposes 6 built-in rules. This document covers every implemented built-in rule in `scanner-rules`.
+Implementation note: the current codebase exposes 8 built-in rules. This document covers every implemented built-in rule in `scanner-rules`.
 
 ## Summary
 
@@ -15,6 +15,7 @@ Implementation note: the current codebase exposes 6 built-in rules. This documen
 | `text-scaling` | Text Scaling | Warning | Text nodes that may overflow or clip inside their parent when simulated at a larger font scale. | Avoid fixed-height containers for text; use flexible height, wrapping, or scrolling so scaled text can reflow. | WCAG 1.4.4 Resize Text (Level AA) |
 | `image-text-overlay` | Image With Text Overlay | Warning | Text nodes that significantly overlap image nodes, creating a contrast risk across dynamic images. | Add a scrim or solid text background, or otherwise guarantee sufficient contrast for every image state. | WCAG 1.4.3 Contrast Minimum (Level AA) |
 | `clickable-role` | Clickable Role | Error | Clickable/touch target nodes that do not expose a semantic role, and clickable image roles without a content description. | Add the appropriate role, such as `Role.Button`, `Role.Checkbox`, or `Role.Image`; provide labels for clickable images. | WCAG 4.1.2 Name, Role, Value (Level A) |
+| `text-contrast` | Text Contrast | Warning | Enabled semantic text whose confidently sampled rendered foreground/background ratio is below the configured minimum. | Choose foreground and background colors that meet the configured ratio in every theme and state. | WCAG 1.4.3 Contrast Minimum (Level AA) |
 
 ## `touch-target-overlap` - Touch Target Overlap
 
@@ -98,7 +99,7 @@ Row {
 
 **Severity:** Error
 
-**What it checks:** This rule evaluates focusable nodes in semantics order and reports a node when focus moves upward by more than the configured threshold, 8dp by default. This catches cases where source order does not match the visible reading order.
+**What it checks:** This rule evaluates visible focusable semantic siblings and reports a node when focus moves upward by more than the configured threshold, 8dp by default. Empty/off-screen lazy placeholders are ignored. Nodes inside semantic collections are not inferred from Y coordinates because lazy and reverse-layout collections can intentionally expose a non-top-to-bottom order, and nodes from separate semantic containers are not compared with each other.
 
 **How to fix:** Prefer arranging composables in the same order users should navigate them. If the visual layout intentionally differs from source order, use semantics traversal ordering deliberately.
 
@@ -215,4 +216,25 @@ Box(
 ) {
     Text("Retry")
 }
+```
+
+## `text-contrast` - Text Contrast
+
+**Severity:** Warning
+
+**What it checks:** The scanner captures the Compose host once, finds rendered pixels inside each enabled semantic `Text` node, and applies the WCAG relative-luminance formula when one color clearly dominates as a solid background. The default minimum is 4.5:1. Disabled text and visually ambiguous crops such as photos or gradients are skipped rather than guessed.
+
+**How to fix:** Darken text on a light surface or lighten it on a dark surface, then verify the result in every supported theme and UI state.
+
+**WCAG reference:** WCAG 1.4.3 Contrast Minimum (Level AA)
+
+**Code example:**
+
+```kotlin
+// About 10:1 against white; the low-contrast Color(0xFFB0B0B0) version is flagged.
+Text(
+    text = "Today's market summary",
+    color = Color(0xFF424242),
+    modifier = Modifier.background(Color.White),
+)
 ```

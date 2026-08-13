@@ -6,7 +6,7 @@ import com.composea11yscanner.core.rule.A11yRule
 /** Factory and metadata for the bundled scanner rule set. */
 object ScannerRules {
     /** Version of the bundled rule set. */
-    const val VERSION = "0.1.0"
+    const val VERSION = "0.2.0"
 
     /** Returns every built-in rule id understood by [buildRules]. */
     fun allRuleIds(): List<String> = listOf(
@@ -17,6 +17,7 @@ object ScannerRules {
         "text-scaling",
         "image-text-overlay",
         "clickable-role",
+        "text-contrast",
     )
 
     /**
@@ -41,5 +42,7 @@ object ScannerRules {
             add(ImageWithTextOverlayRule())
         if ("clickable-role" in config.enabledRules)
             add(ClickableRoleRule())
+        if ("text-contrast" in config.enabledRules)
+            add(TextContrastRule(config.minContrastRatio))
     }
 }

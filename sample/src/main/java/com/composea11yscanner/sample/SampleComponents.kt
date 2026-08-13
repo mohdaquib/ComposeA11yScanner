@@ -114,12 +114,16 @@ fun FixedIconAction(
 }
 
 @Composable
-fun MarketFilterChip(label: String, selected: Boolean) {
+fun MarketFilterChip(
+    label: String,
+    selected: Boolean,
+    selectedContainerColor: Color = Color(0xFF6C63FF),
+) {
     Box(
         modifier = Modifier
             .height(48.dp)
             .background(
-                color = if (selected) Color(0xFF6C63FF) else Color(0xFF1C1C28),
+                color = if (selected) selectedContainerColor else Color(0xFF1C1C28),
                 shape = RoundedCornerShape(24.dp),
             )
             .clickable(

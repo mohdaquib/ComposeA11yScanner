@@ -33,9 +33,11 @@ class FocusOrderRule(
     private val jumpThresholdPx: Int = (jumpThresholdDp * screenDensity).roundToInt()
 
     /** Evaluates all focusable nodes in semantics order. */
-    override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> =
-        effectiveFocusNodes(nodes)
+    override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> {
+        val nodesById = nodes.associateBy(A11yNode::nodeId)
+        return effectiveFocusNodes(nodes)
             .zipWithNext { prev, curr ->
+                if (!areComparable(prev, curr, nodesById)) return@zipWithNext null
                 val jumpedUpward = curr.bounds.top < prev.bounds.top - jumpThresholdPx
                 if (!jumpedUpward) return@zipWithNext null
 
@@ -52,12 +54,13 @@ class FocusOrderRule(
                 )
             }
             .filterNotNull()
+    }
 
     private fun effectiveFocusNodes(nodes: List<A11yNode>): List<A11yNode> {
         val result = mutableListOf<A11yNode>()
 
         nodes
-            .filter { it.isFocusable && !it.isMergedDescendant }
+            .filter { it.isFocusable && !it.isMergedDescendant && !it.bounds.isEmpty() }
             .forEach { node ->
                 val hasFocusableAncestor = result.any { ancestor ->
                     ancestor.depth < node.depth && ancestor.bounds.contains(node.bounds)
@@ -66,6 +69,36 @@ class FocusOrderRule(
             }
 
         return result
+    }
+
+    /**
+     * Only compare controls in the same meaningful traversal scope. Compose collections can
+     * intentionally expose reverse item order, and separate top-level branches (for example an
+     * app bar and a lazy conversation) establish their own traversal groups.
+     */
+    private fun areComparable(
+        first: A11yNode,
+        second: A11yNode,
+        nodesById: Map<String, A11yNode>,
+    ): Boolean {
+        if (first.hasCollectionAncestor(nodesById) || second.hasCollectionAncestor(nodesById)) {
+            return false
+        }
+
+        return when {
+            first.parentNodeId == null && second.parentNodeId == null -> true
+            else -> first.parentNodeId == second.parentNodeId
+        }
+    }
+
+    private fun A11yNode.hasCollectionAncestor(nodesById: Map<String, A11yNode>): Boolean {
+        var current = parentNodeId?.let(nodesById::get)
+        val visited = mutableSetOf<String>()
+        while (current != null && visited.add(current.nodeId)) {
+            if (current.isCollectionContainer) return true
+            current = current.parentNodeId?.let(nodesById::get)
+        }
+        return false
     }
 
     private fun com.composea11yscanner.core.model.Rect.contains(other: com.composea11yscanner.core.model.Rect): Boolean =
