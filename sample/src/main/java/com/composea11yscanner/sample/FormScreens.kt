@@ -201,7 +201,10 @@ private fun RecipientRow(
         Box(
             modifier = Modifier
                 .size(56.dp)
-                .background(Color(0xFF6C63FF), RoundedCornerShape(28.dp))
+                .background(
+                    color = if (isFixed) Color(0xFF5A52D5) else Color(0xFF6C63FF),
+                    shape = RoundedCornerShape(28.dp),
+                )
                 .then(
                     if (isFixed) {
                         Modifier.semantics { contentDescription = "Recipient avatar for Maya Johnson" }

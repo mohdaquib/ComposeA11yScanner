@@ -12,8 +12,14 @@ value class Color(
     /** Packed color value compatible with Compose color storage. */
     val value: Long,
 ) {
+    /** Returns the packed 8-bit Android ARGB representation for sampled sRGB colors. */
+    fun toArgb(): Int = (value ushr 32).toInt()
+
     companion object {
         /** Sentinel value used when a color could not be sampled. */
         val Unspecified = Color(0L)
+
+        /** Creates a sampled sRGB color from an Android ARGB integer. */
+        fun fromArgb(argb: Int): Color = Color((argb.toLong() and 0xFFFFFFFFL) shl 32)
     }
 }

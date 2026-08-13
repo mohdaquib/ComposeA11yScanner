@@ -2,6 +2,8 @@ package com.composea11yscanner
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.graphics.Rect as AndroidRect
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -39,6 +41,7 @@ import com.composea11yscanner.ui.A11yIssueOverlay
 import com.composea11yscanner.ui.A11yNodeExtractor
 import com.composea11yscanner.ui.A11yScannerController
 import com.composea11yscanner.ui.IssueDetailPanel
+import com.composea11yscanner.ui.RenderedTextContrastAnalyzer
 import com.composea11yscanner.ui.ScanSummaryBar
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,6 +73,8 @@ import kotlinx.coroutines.flow.flatMapLatest
  * ```
  */
 object ComposeA11yScanner {
+
+    private const val COMPOSE_HOST_LOG_TAG = "ComposeA11yHosts"
 
     /**
      * Active scanner entries keyed by activity. [LinkedHashMap] preserves insertion order so
@@ -220,11 +225,18 @@ object ComposeA11yScanner {
 
     private fun extractNodesUnchecked(activity: ComponentActivity): List<A11yNode> {
         val overlayView = entries[activity]?.overlayView
-        val hostView = (activity.window.decorView as? ViewGroup)
-            ?.findFirstAbstractComposeView(excludeView = overlayView)
+        val decorView = activity.window.decorView as? ViewGroup ?: return emptyList()
+        decorView.logAbstractComposeViews(excludeView = overlayView)
+        val selectedHost = decorView
+            .findBestAbstractComposeView(excludeView = overlayView)
             ?: return emptyList()
-        val semanticsOwner = hostView.findSemanticsOwner() ?: return emptyList()
-        return A11yNodeExtractor().extract(semanticsOwner)
+        Log.d(
+            COMPOSE_HOST_LOG_TAG,
+            "Selected host: ${selectedHost.view.composeHostDescription(isExcluded = false)}, " +
+                "visibleTextNodes=${selectedHost.visibleTextNodes}, " +
+                "visibleNodes=${selectedHost.visibleNodes}, depth=${selectedHost.depth}",
+        )
+        return RenderedTextContrastAnalyzer(selectedHost.view).analyze(selectedHost.nodes)
     }
 
     private fun AbstractComposeView.findSemanticsOwner(): SemanticsOwner? {
@@ -236,19 +248,127 @@ object ComposeA11yScanner {
         }.getOrNull()
     }
 
-    private fun ViewGroup.findFirstAbstractComposeView(
+    private fun ViewGroup.findBestAbstractComposeView(
         excludeView: View?,
-    ): AbstractComposeView? {
-        for (i in 0 until childCount) {
-            val child = getChildAt(i)
-            if (child === excludeView) continue
-            if (child is AbstractComposeView) return child
-            if (child is ViewGroup) {
-                child.findFirstAbstractComposeView(excludeView)?.let { return it }
+    ): ComposeHostCandidate? {
+        val candidates = mutableListOf<ComposeHostCandidate>()
+        collectComposeHostCandidates(
+            excludeView = excludeView,
+            depth = 0,
+            candidates = candidates,
+        )
+        candidates.forEach { candidate ->
+            Log.d(
+                COMPOSE_HOST_LOG_TAG,
+                "Candidate score: identity=${System.identityHashCode(candidate.view)}, " +
+                    "visibleTextNodes=${candidate.visibleTextNodes}, " +
+                    "visibleNodes=${candidate.visibleNodes}, depth=${candidate.depth}",
+            )
+        }
+        return candidates.maxWithOrNull(
+            compareBy<ComposeHostCandidate> { it.visibleTextNodes }
+                .thenBy { it.visibleNodes }
+                .thenBy { it.depth },
+        )
+    }
+
+    private fun ViewGroup.collectComposeHostCandidates(
+        excludeView: View?,
+        depth: Int,
+        candidates: MutableList<ComposeHostCandidate>,
+    ) {
+        for (index in 0 until childCount) {
+            val child = getChildAt(index)
+            if (child is AbstractComposeView && child !== excludeView && child.isViableComposeHost()) {
+                child.toComposeHostCandidate(depth + 1)?.let(candidates::add)
+            }
+            if (child is ViewGroup && child !== excludeView) {
+                child.collectComposeHostCandidates(
+                    excludeView = excludeView,
+                    depth = depth + 1,
+                    candidates = candidates,
+                )
             }
         }
-        return null
     }
+
+    private fun AbstractComposeView.isViableComposeHost(): Boolean =
+        visibility == View.VISIBLE &&
+            isShown &&
+            isAttachedToWindow &&
+            isLaidOut &&
+            alpha > 0f &&
+            width > 0 &&
+            height > 0
+
+    private fun AbstractComposeView.toComposeHostCandidate(depth: Int): ComposeHostCandidate? {
+        val owner = findSemanticsOwner() ?: return null
+        val nodes = runCatching { A11yNodeExtractor().extract(owner) }.getOrNull() ?: return null
+        val visibleNodes = nodes.filter { node -> node.bounds.intersectsViewport(width, height) }
+        return ComposeHostCandidate(
+            view = this,
+            nodes = nodes,
+            depth = depth,
+            visibleTextNodes = visibleNodes.count { it.composableName == "Text" },
+            visibleNodes = visibleNodes.size,
+        )
+    }
+
+    private fun ViewGroup.logAbstractComposeViews(
+        excludeView: View?,
+        path: String = javaClass.simpleName,
+    ) {
+        for (index in 0 until childCount) {
+            val child = getChildAt(index)
+            val childPath = "$path/$index:${child.javaClass.simpleName}"
+            if (child is AbstractComposeView) {
+                Log.d(
+                    COMPOSE_HOST_LOG_TAG,
+                    "Candidate path=$childPath, " +
+                        child.composeHostDescription(isExcluded = child === excludeView),
+                )
+            }
+            if (child is ViewGroup) {
+                child.logAbstractComposeViews(
+                    excludeView = excludeView,
+                    path = childPath,
+                )
+            }
+        }
+    }
+
+    private fun AbstractComposeView.composeHostDescription(isExcluded: Boolean): String {
+        val screenLocation = IntArray(2)
+        getLocationOnScreen(screenLocation)
+        val visibleRect = AndroidRect()
+        val hasVisibleRect = getGlobalVisibleRect(visibleRect)
+        return "identity=${System.identityHashCode(this)}, " +
+            "excludedOverlay=$isExcluded, " +
+            "visibility=${visibility.asVisibilityName()}, " +
+            "shown=$isShown, attached=$isAttachedToWindow, laidOut=$isLaidOut, " +
+            "alpha=$alpha, size=${width}x$height, " +
+            "position=($x,$y), translation=($translationX,$translationY), " +
+            "screen=(${screenLocation[0]},${screenLocation[1]}), " +
+            "hasVisibleRect=$hasVisibleRect, visibleRect=$visibleRect, " +
+            "childCount=$childCount"
+    }
+
+    private fun Int.asVisibilityName(): String = when (this) {
+        View.VISIBLE -> "VISIBLE"
+        View.INVISIBLE -> "INVISIBLE"
+        View.GONE -> "GONE"
+        else -> toString()
+    }
+
+    private fun com.composea11yscanner.core.model.Rect.intersectsViewport(
+        viewportWidth: Int,
+        viewportHeight: Int,
+    ): Boolean =
+        !isEmpty() &&
+            right > 0 &&
+            bottom > 0 &&
+            left < viewportWidth &&
+            top < viewportHeight
 
     // ── Inner types ──────────────────────────────────────────────────────────────
 
@@ -263,6 +383,14 @@ object ComposeA11yScanner {
             controller.destroy()
         }
     }
+
+    private data class ComposeHostCandidate(
+        val view: AbstractComposeView,
+        val nodes: List<A11yNode>,
+        val depth: Int,
+        val visibleTextNodes: Int,
+        val visibleNodes: Int,
+    )
 
     private class AutoUninstallObserver(
         private val activity: ComponentActivity,

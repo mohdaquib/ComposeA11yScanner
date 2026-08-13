@@ -96,7 +96,10 @@ fun BrokenLoginScreen(onViewFixed: (() -> Unit)? = null) {
                     .size(width = 108.dp, height = 30.dp)
                     .clickable { },
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Intentionally overlap the visual bounds as well as Compose's expanded touch bounds.
+            // Expanded hit areas alone are not an overlap failure because adjacent controls can
+            // still have distinct pointer targets.
+            Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
                 TinyClickableLabel("?", Color(0xFF1C2B3A))
                 TinyClickableLabel("!", Color(0xFF2E2A1C))
                 TinyClickableLabel("x", Color(0xFF281C2E))
@@ -168,7 +171,8 @@ fun FixedLoginScreen(onViewBroken: (() -> Unit)? = null) {
                     ) {
                         Text(
                             text = if (passwordVisible) "Hide" else "Show",
-                            color = Color(0xFF6C63FF),
+                            // The original #6C63FF renders below 4.5:1 on the text-field surface.
+                            color = Color(0xFF8B83FF),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                         )

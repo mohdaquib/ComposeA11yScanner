@@ -22,6 +22,10 @@ class MissingContentDescriptionRule : BaseA11yRule() {
 
     /** Evaluates a single node for a screen-reader label. */
     override fun check(node: A11yNode): A11yIssue? {
+        // Lazy containers can retain zero-sized semantics for disposed or off-screen items.
+        // They are not currently rendered or reachable, so do not report them.
+        if (node.bounds.isEmpty()) return null
+
         // Merged descendants are announced via their parent — skip them.
         if (node.isMergedDescendant) return null
 

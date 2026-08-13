@@ -36,6 +36,7 @@ class A11yNodeExtractor {
             parentNodeId = null,
             depth = 0,
             isParentMerging = false,
+            isParentEnabled = true,
             result = result,
         )
         return result
@@ -58,6 +59,7 @@ class A11yNodeExtractor {
         parentNodeId: String?,
         depth: Int,
         isParentMerging: Boolean,
+        isParentEnabled: Boolean,
         result: MutableList<A11yNode>,
     ) {
         result.add(
@@ -65,16 +67,19 @@ class A11yNodeExtractor {
                 parentNodeId = parentNodeId,
                 depth = depth,
                 isMergedDescendant = isParentMerging,
+                isEnabled = isParentEnabled && !node.config.contains(SemanticsProperties.Disabled),
             ),
         )
         // Children of a merging node are merged descendants; propagate the flag downward.
         val mergingForChildren = isParentMerging || node.config.isMergingSemanticsOfDescendants
+        val enabledForChildren = isParentEnabled && !node.config.contains(SemanticsProperties.Disabled)
         node.children.forEach { child ->
             visit(
                 node = child,
                 parentNodeId = node.id.toString(),
                 depth = depth + 1,
                 isParentMerging = mergingForChildren,
+                isParentEnabled = enabledForChildren,
                 result = result,
             )
         }
@@ -86,6 +91,7 @@ class A11yNodeExtractor {
         parentNodeId: String?,
         depth: Int,
         isMergedDescendant: Boolean,
+        isEnabled: Boolean,
     ): A11yNode {
         val composeRole = config.getOrNull(SemanticsProperties.Role)
         val isTextInput = config.contains(SemanticsActions.SetText)
@@ -124,6 +130,8 @@ class A11yNodeExtractor {
                 .takeIf { isTouchTarget }
                 ?.toCoreRect(),
             parentNodeId = parentNodeId,
+            isEnabled = isEnabled,
+            isCollectionContainer = config.contains(SemanticsProperties.CollectionInfo),
         )
     }
 

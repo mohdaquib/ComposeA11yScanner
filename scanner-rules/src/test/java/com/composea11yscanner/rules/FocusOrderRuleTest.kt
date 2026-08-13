@@ -74,6 +74,76 @@ class FocusOrderRuleTest {
         assertTrue(rule.evaluateAll(nodes).isEmpty())
     }
 
+    @Test
+    fun `zero-sized focusable node is skipped`() {
+        val nodes = listOf(
+            createNode(isFocusable = true, bounds = Rect(0, 100, 100, 150)),
+            createNode(isFocusable = true, bounds = Rect.Zero),
+        )
+
+        assertTrue(rule.evaluateAll(nodes).isEmpty())
+    }
+
+    @Test
+    fun `reverse ordered nodes inside semantic collection are skipped`() {
+        val collection = createNode(
+            nodeId = "collection",
+            bounds = Rect(0, 0, 200, 300),
+            isCollectionContainer = true,
+        )
+        val nodes = listOf(
+            collection,
+            createNode(
+                isFocusable = true,
+                parentNodeId = collection.nodeId,
+                bounds = Rect(0, 200, 100, 250),
+            ),
+            createNode(
+                isFocusable = true,
+                parentNodeId = collection.nodeId,
+                bounds = Rect(0, 100, 100, 150),
+            ),
+        )
+
+        assertTrue(rule.evaluateAll(nodes).isEmpty())
+    }
+
+    @Test
+    fun `nodes in different semantic containers are not compared`() {
+        val nodes = listOf(
+            createNode(
+                isFocusable = true,
+                parentNodeId = "content",
+                bounds = Rect(0, 700, 100, 750),
+            ),
+            createNode(
+                isFocusable = true,
+                parentNodeId = "app-bar",
+                bounds = Rect(0, 20, 100, 70),
+            ),
+        )
+
+        assertTrue(rule.evaluateAll(nodes).isEmpty())
+    }
+
+    @Test
+    fun `upward sibling traversal is still flagged`() {
+        val nodes = listOf(
+            createNode(
+                isFocusable = true,
+                parentNodeId = "form",
+                bounds = Rect(0, 100, 100, 150),
+            ),
+            createNode(
+                isFocusable = true,
+                parentNodeId = "form",
+                bounds = Rect(0, 50, 100, 100),
+            ),
+        )
+
+        assertEquals(1, rule.evaluateAll(nodes).size)
+    }
+
     // --- failing cases ---
 
     @Test

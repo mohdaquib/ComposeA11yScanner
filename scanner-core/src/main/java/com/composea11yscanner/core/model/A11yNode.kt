@@ -11,6 +11,8 @@ package com.composea11yscanner.core.model
  * @property effectiveTouchBounds Effective pointer target bounds in root pixels for clickable nodes.
  * @property textColor Foreground text color when it can be extracted.
  * @property backgroundColors Candidate background colors sampled behind the node.
+ * @property isEnabled False when the node or one of its semantic ancestors is disabled.
+ * @property isCollectionContainer True when the node exposes semantic collection information.
  * @property isFocusable True when the node can participate in focus traversal.
  * @property isMergedDescendant True when the node is inside a parent that merges semantics.
  * @property depth Depth in the semantics tree.
@@ -32,4 +34,6 @@ data class A11yNode(
     val role: A11yRole? = null,
     val effectiveTouchBounds: Rect? = null,
     val parentNodeId: String? = null,
+    val isEnabled: Boolean = true,
+    val isCollectionContainer: Boolean = false,
 )

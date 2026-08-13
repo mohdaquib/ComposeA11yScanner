@@ -145,6 +145,7 @@ See [RULES.md](RULES.md) for complete behavior, fixes, WCAG references, and exam
 | `text-scaling` | Text Scaling | Warning | [RULES.md](RULES.md#text-scaling---text-scaling) |
 | `image-text-overlay` | Image With Text Overlay | Warning | [RULES.md](RULES.md#image-text-overlay---image-with-text-overlay) |
 | `clickable-role` | Clickable Role | Error | [RULES.md](RULES.md#clickable-role---clickable-role) |
+| `text-contrast` | Text Contrast | Warning | [RULES.md](RULES.md#text-contrast---text-contrast) |
 
 ## Custom Rules
 
