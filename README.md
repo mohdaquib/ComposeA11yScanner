@@ -1,27 +1,64 @@
-# Compose A11y Scanner
+# ComposeA11yScanner
+
+Catch accessibility issues while building Jetpack Compose UIs - including rendered text-contrast
+problems that are not available from the Compose semantics tree alone.
 
 [![Featured in Android Weekly](https://androidweekly.net/issues/issue-736/badge)](https://androidweekly.net/issues/issue-736/#:~:text=Compose%20A11y%20Scanner,touch%20target%20issues.)
-[![Featured in Jetpack Compose Newletter](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23324-blue?logo=Jetpack+Compose&logoColor=white)](https://jetc.dev/#:~:text=GitHub%3A%20mohdaquib%20/%20ComposeA11yScanner,content%20descriptions%2C%20etc.)
+[![Featured in Jetpack Compose Newsletter](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23324-blue?logo=Jetpack+Compose&logoColor=white)](https://jetc.dev/#:~:text=GitHub%3A%20mohdaquib%20/%20ComposeA11yScanner,content%20descriptions%2C%20etc.)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Build and Test](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/ci.yml/badge.svg)](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/ci.yml)
-[![API Docs](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/docs.yml/badge.svg)](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/docs.yml)
+[![API Docs](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/docs.yml/badge.svg)](https://mohdaquib.github.io/ComposeA11yScanner/)
 [![JitPack](https://jitpack.io/v/mohdaquib/ComposeA11yScanner.svg)](https://jitpack.io/#mohdaquib/ComposeA11yScanner)
 
-Runtime accessibility scanner that overlays issues directly on your Compose UI
+ComposeA11yScanner is a debug-only runtime scanner that finds accessibility issues in Jetpack
+Compose and highlights them directly on the rendered UI. Inspect the affected element, understand
+the problem, and see a suggested fix without leaving the app.
 
 ![Annotated GIF showing the Compose A11y Scanner issue summary, view highlights, and issue detail sheet in the sample app](docs/overlay-demo.gif)
 
-## 🏆 Featured
+## Why ComposeA11yScanner?
 
-ComposeA11yScanner was featured in  **Jetpack Compose Newsletter** and **Android Weekly** 🎉
+- **Immediate visual feedback** - issues are outlined where they occur on the screen.
+- **Semantics and rendered analysis** - rules inspect Compose semantics, while text contrast is
+  estimated from a captured Compose host.
+- **Actionable guidance** - every finding includes its severity, WCAG reference, and a suggested fix.
+- **Minimal setup** - add one debug dependency; AndroidX Startup handles installation.
+- **Debug-only integration** - `debugImplementation` keeps the scanner out of release builds.
+- **Extensible rules** - use the bundled rules or add checks for your own accessibility standards.
 
-[![Featured in Jetpack Compose Newletter](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23324-blue?logo=Jetpack+Compose&logoColor=white)
+## What's new in 2.1.0
 
-[![Featured in Android Weekly](https://androidweekly.net/issues/issue-736/badge)](https://androidweekly.net/issues/issue-736/#:~:text=Compose%20A11y%20Scanner,touch%20target%20issues.)
+- Added `TextContrastRule` with conservative screenshot-based foreground and background analysis.
+- Improved scanning across Fragment navigation and Compose destination changes.
+- Improved Compose host selection, screen-readiness detection, and stale-result invalidation.
+- Reduced false positives and false negatives involving merged semantics, lazy layouts, off-screen
+  nodes, repeated descriptions, rich text, and overlapping touch targets.
+- Preserved source compatibility with 2.0.0; no public API was removed.
+
+Because rendered text contrast is now checked by default, 2.1.0 may report valid warnings that
+earlier versions could not detect.
+
+[Read the 2.1.0 release notes](https://github.com/mohdaquib/ComposeA11yScanner/releases/tag/2.1.0)
+or view the [full changelog](https://github.com/mohdaquib/ComposeA11yScanner/compare/v2.0.0...2.1.0).
+
+## Contents
+
+- [What's new in 2.1.0](#whats-new-in-210)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Built-in rules](#built-in-rules)
+- [Text contrast and known limitations](#text-contrast-and-known-limitations)
+- [Custom rules](#custom-rules)
+- [Architecture](#architecture)
+- [Support and contributions](#support-and-contributions)
+- [Featured in](#featured-in)
 
 ## Quick start
 
-Add JitPack and the debug-only scanner dependency:
+### 1. Add the dependency
+
+ComposeA11yScanner supports Android API 24 and newer. Add JitPack to dependency resolution and
+add the scanner to the debug variant only:
 
 ```kotlin
 // settings.gradle.kts
@@ -39,9 +76,16 @@ dependencies {
 }
 ```
 
-That is all the integration required. AndroidX Startup automatically attaches the overlay and runs an initial scan for each `ComponentActivity` in a debuggable app. Release builds do not package the scanner when it is added with `debugImplementation`.
+That is all the integration required. AndroidX Startup attaches the overlay and runs an initial
+scan for every `ComponentActivity` in a debuggable app.
 
-To request another scan, call the API from a debug source set (for example, `src/debug/java/.../ScannerActions.kt`):
+> [!IMPORTANT]
+> Keep the dependency and all direct scanner calls in debug source sets. Do not add the scanner
+> with `implementation` or reference it from release sources.
+
+### 2. Trigger a scan
+
+Call the API from a debug source set, such as `src/debug/java/.../ScannerActions.kt`:
 
 ```kotlin
 import com.composea11yscanner.ComposeA11yScanner
@@ -50,10 +94,12 @@ ComposeA11yScanner.triggerScan()
 ```
 
 `ComposeA11yScanner.scan()` is safe to collect before the first activity reaches `onResume` when
-automatic installation is enabled. The flow waits for an installed activity scanner and then
-forwards its state.
+automatic installation is enabled. The flow waits for an installed activity scanner, then forwards
+its state.
 
-For shake-to-scan, add one call to a debug-only composable that is active while the screen is visible:
+### Optional: shake to scan
+
+Add `scanOnShake()` to a debug-only composable that remains active while the screen is visible:
 
 ```kotlin
 import com.composea11yscanner.triggers.scanOnShake
@@ -65,11 +111,13 @@ fun App() {
 }
 ```
 
-The scanner enables all built-in rules by default. The overlay is removed automatically when its activity is destroyed. Keep direct scanner imports in `src/debug`; a `debugImplementation` dependency is intentionally unavailable while compiling release sources.
+All built-in rules are enabled by default, and the overlay is removed when its activity is destroyed.
+Keep direct scanner imports in `src/debug`; dependencies added with `debugImplementation` are
+intentionally unavailable to release source sets.
 
 ## Configuration
 
-Optional manifest metadata configures the auto-installed scanner:
+Optional manifest metadata controls the auto-installed scanner:
 
 ```xml
 <application>
@@ -151,22 +199,45 @@ A11yScannerScaffold(
 }
 ```
 
-## Built-In Rules
+## Built-in rules
 
 See [RULES.md](RULES.md) for complete behavior, fixes, WCAG references, and examples.
 
-| Rule ID | Name | Severity | Details |
-| --- | --- | --- | --- |
-| `touch-target-overlap` | Touch Target Overlap | Warning | [RULES.md](RULES.md#touch-target-overlap---touch-target-overlap) |
-| `missing-content-description` | Missing Content Description | Error | [RULES.md](RULES.md#missing-content-description---missing-content-description) |
-| `duplicate-content-description` | Duplicate Content Description | Warning | [RULES.md](RULES.md#duplicate-content-description---duplicate-content-description) |
-| `focus-order` | Focus Order | Error | [RULES.md](RULES.md#focus-order---focus-order) |
-| `text-scaling` | Text Scaling | Warning | [RULES.md](RULES.md#text-scaling---text-scaling) |
-| `image-text-overlay` | Image With Text Overlay | Warning | [RULES.md](RULES.md#image-text-overlay---image-with-text-overlay) |
-| `clickable-role` | Clickable Role | Error | [RULES.md](RULES.md#clickable-role---clickable-role) |
-| `text-contrast` | Text Contrast | Warning | [RULES.md](RULES.md#text-contrast---text-contrast) |
+| Rule | Severity | Detects |
+| --- | --- | --- |
+| [Touch Target Overlap](RULES.md#touch-target-overlap---touch-target-overlap) | Warning | Interactive elements whose effective touch and visual bounds overlap. |
+| [Missing Content Description](RULES.md#missing-content-description---missing-content-description) | Error | Interactive or image-like elements without a readable label. |
+| [Duplicate Content Description](RULES.md#duplicate-content-description---duplicate-content-description) | Warning | Distinct controls in the same logical scope that expose the same description. |
+| [Focus Order](RULES.md#focus-order---focus-order) | Error | Focus traversal that conflicts with the expected visual reading order. |
+| [Text Scaling](RULES.md#text-scaling---text-scaling) | Warning | Text likely to clip or overflow when the user increases font size. |
+| [Image With Text Overlay](RULES.md#image-text-overlay---image-with-text-overlay) | Warning | Text overlapping an image, where dynamic content can create contrast risk. |
+| [Clickable Role](RULES.md#clickable-role---clickable-role) | Error | Clickable elements without an appropriate semantic role or label. |
+| [Text Contrast](RULES.md#text-contrast---text-contrast) | Warning | Confidently measured rendered text below the configured contrast ratio. |
 
-## Custom Rules
+## Text contrast and known limitations
+
+`TextContrastRule` complements semantics-based checks with rendered-pixel analysis. The scanner
+captures the selected Compose host once, samples enabled semantic `Text` nodes, and applies the WCAG
+relative-luminance formula when it can confidently identify a foreground and a solid-looking
+background. The default minimum ratio is 4.5:1 and can be changed through `ScannerConfig` or manifest
+metadata.
+
+The estimator intentionally skips uncertain results instead of guessing. Keep these boundaries in
+mind when interpreting a scan:
+
+- Photos, gradients, textured surfaces, and other visually ambiguous text backgrounds may be skipped.
+- Text drawn on a `Canvas`, embedded in an image, or otherwise absent from Compose semantics is not
+  discovered through OCR.
+- One configurable ratio is applied to measured text; separate large-text thresholds are not inferred.
+- A scan represents the currently rendered theme, state, content, and destination. Scan every state
+  that users can encounter.
+- Automated findings complement, but do not replace, testing with TalkBack, font scaling, keyboard or
+  switch access, and human accessibility review.
+
+If a result appears incorrect, include the affected screen, scanner version, exported scan result,
+and a minimal reproduction when opening an issue.
+
+## Custom rules
 
 Create a rule by implementing `A11yRule`. Use a stable `ruleId`, assign a severity, and return an `A11yIssue` only when the node fails your check.
 
@@ -220,4 +291,30 @@ flowchart LR
 
 `:scanner-core` owns the scan engine and public models. `:scanner-rules` contains built-in rules. `:scanner-ui` handles Android/Compose integration, node extraction, triggers, and the overlay.
 
+## Support and contributions
+
+Questions, bug reports, rule proposals, and pull requests are welcome. Use
+[GitHub Issues](https://github.com/mohdaquib/ComposeA11yScanner/issues) and choose a title that
+identifies whether the report is a false positive, false negative, integration problem, or feature
+request.
+
+For scanner-result problems, please include:
+
+- ComposeA11yScanner version and Android version.
+- Navigation and hosting setup, such as Navigation Compose, Fragments, or nested `ComposeView`s.
+- A screenshot and exported scan-result JSON with sensitive information removed.
+- Expected behavior, actual behavior, and reproduction steps.
+
+See the [sample app](sample) for broken and corrected examples of the bundled rules, and browse the
+[API documentation](https://mohdaquib.github.io/ComposeA11yScanner/) for public types and functions.
+
+## Featured in
+
+ComposeA11yScanner has been featured in the
+[Jetpack Compose Newsletter](https://jetc.dev/#:~:text=GitHub%3A%20mohdaquib%20%2F%20ComposeA11yScanner,content%20descriptions%2C%20etc.)
+and [Android Weekly](https://androidweekly.net/issues/issue-736/#:~:text=Compose%20A11y%20Scanner,touch%20target%20issues.).
+
+## License
+
+ComposeA11yScanner is available under the [Apache License 2.0](LICENSE).
 
