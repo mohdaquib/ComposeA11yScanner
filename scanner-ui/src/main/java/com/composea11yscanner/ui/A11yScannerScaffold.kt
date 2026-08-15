@@ -73,7 +73,7 @@ fun A11yScannerScaffold(
     LaunchedEffect(Unit) {
         scannerController.stateFlow.collect { state ->
             scannerState = state
-            if (state is ScannerState.Scanning) selectedIssues = emptyList()
+            if (state !is ScannerState.Complete) selectedIssues = emptyList()
         }
     }
 

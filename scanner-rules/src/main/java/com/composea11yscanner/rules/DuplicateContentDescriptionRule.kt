@@ -5,7 +5,7 @@ import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.A11ySeverity
 import com.composea11yscanner.core.rule.BaseScanRule
 
-/** Flags sibling-level nodes that reuse the same non-empty content description. */
+/** Flags independently exposed nodes that reuse a description in the same semantic scope. */
 class DuplicateContentDescriptionRule : BaseScanRule() {
 
     /** Stable id for the duplicate content description rule. */
@@ -20,19 +20,37 @@ class DuplicateContentDescriptionRule : BaseScanRule() {
     /** WCAG criterion associated with distinguishable labels. */
     override val wcagReference = "WCAG 2.4.6 Headings and Labels (Level AA)"
 
-    /** Evaluates all nodes together to find repeated labels among semantic siblings. */
-    override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> =
-        nodes
+    /**
+     * Compares siblings outside collections and all items within the same semantic collection.
+     * Parent/child copies of one merged accessibility target are collapsed before grouping.
+     */
+    override fun evaluateAll(nodes: List<A11yNode>): List<A11yIssue> {
+        val nodesById = nodes.associateBy(A11yNode::nodeId)
+        val candidates = nodes
             .asSequence()
-            .filter { !it.contentDescription.isNullOrBlank() && !it.isMergedDescendant }
-            .groupBy { it.parentNodeId to it.contentDescription }
+            .filter { node ->
+                !node.contentDescription.isNullOrBlank() &&
+                    (!node.isMergedDescendant || node.isTouchTarget) &&
+                    node.isEnabled &&
+                    !node.bounds.isEmpty()
+            }
+            .toList()
+        val candidateIds = candidates.mapTo(mutableSetOf(), A11yNode::nodeId)
+
+        return candidates
+            .asSequence()
+            .filterNot { node -> node.isCopyOfLabeledAncestor(candidateIds, nodesById) }
+            .groupBy { node ->
+                val scopeId = node.nearestCollectionAncestorId(nodesById) ?: node.parentNodeId
+                scopeId to node.normalizedDescription()
+            }
             .filter { (_, group) -> group.size > 1 }
-            .flatMap { (key, group) ->
-                val text = key.second
+            .flatMap { (_, group) ->
+                val text = group.first().contentDescription!!.trim()
                 group.map { node ->
                     issue(
                         node = node,
-                        message = "Two elements share the same content description: '$text'. " +
+                        message = "Multiple elements share the same content description: '$text'. " +
                             "Screen readers may confuse users.",
                         howToFix = "Give each element a unique content description that " +
                             "identifies its specific action or content.",
@@ -40,4 +58,48 @@ class DuplicateContentDescriptionRule : BaseScanRule() {
                 }
             }
             .toList()
+    }
+
+    private fun A11yNode.nearestCollectionAncestorId(
+        nodesById: Map<String, A11yNode>,
+    ): String? {
+        var current = parentNodeId?.let(nodesById::get)
+        val visited = mutableSetOf<String>()
+        while (current != null && visited.add(current.nodeId)) {
+            if (current.isCollectionContainer) return current.nodeId
+            current = current.parentNodeId?.let(nodesById::get)
+        }
+        return null
+    }
+
+    private fun A11yNode.isCopyOfLabeledAncestor(
+        candidateIds: Set<String>,
+        nodesById: Map<String, A11yNode>,
+    ): Boolean {
+        val description = normalizedDescription()
+        var current = parentNodeId?.let(nodesById::get)
+        val visited = mutableSetOf<String>()
+        while (current != null && visited.add(current.nodeId)) {
+            if (
+                current.nodeId in candidateIds &&
+                current.normalizedDescription() == description &&
+                current.bounds.contains(bounds)
+            ) {
+                return true
+            }
+            current = current.parentNodeId?.let(nodesById::get)
+        }
+        return false
+    }
+
+    private fun A11yNode.normalizedDescription(): String =
+        contentDescription.orEmpty().trim().lowercase()
+
+    private fun com.composea11yscanner.core.model.Rect.contains(
+        other: com.composea11yscanner.core.model.Rect,
+    ): Boolean =
+        left <= other.left &&
+            top <= other.top &&
+            right >= other.right &&
+            bottom >= other.bottom
 }

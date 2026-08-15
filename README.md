@@ -118,6 +118,25 @@ ComposeA11yScanner.install(
 
 Do not combine automatic and manual installation. Repeated installation on the same activity is ignored, but keeping one ownership path makes configuration predictable.
 
+For Navigation Compose, provide the current route when installing manually. An explicit key reliably
+invalidates stale results even when two destinations have the same semantics structure:
+
+```kotlin
+ComposeA11yScanner.install(
+    activity = this,
+    destinationKeyProvider = {
+        navController.currentBackStackEntry?.destination?.route
+    },
+)
+```
+
+If a navigation framework cannot expose a route provider, automatic host/semantics detection remains
+enabled. A custom navigator can also invalidate the current result explicitly:
+
+```kotlin
+ComposeA11yScanner.notifyScreenChanged()
+```
+
 ### Embedded scaffold
 
 `A11yScannerScaffold` is the advanced API for apps that want the scanner UI inside their own Compose hierarchy or need a custom node provider. It requires an `A11yScannerController`; most integrations should use the automatic activity overlay above.

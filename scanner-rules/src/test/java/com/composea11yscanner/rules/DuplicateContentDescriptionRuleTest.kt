@@ -159,4 +159,103 @@ class DuplicateContentDescriptionRuleTest {
 
         assertTrue(rule.evaluateAll(listOf(androidPicks, wfhFavourites)).isEmpty())
     }
+
+    @Test
+    fun `same action in different items of one collection is a duplicate`() {
+        val collection = createNode(
+            nodeId = "cart-list",
+            depth = 1,
+            isCollectionContainer = true,
+        )
+        val gingerbreadRow = createNode(
+            nodeId = "gingerbread-row",
+            parentNodeId = collection.nodeId,
+            depth = 2,
+        )
+        val kitkatRow = createNode(
+            nodeId = "kitkat-row",
+            parentNodeId = collection.nodeId,
+            depth = 2,
+        )
+        val removeGingerbread = createNode(
+            nodeId = "remove-gingerbread",
+            parentNodeId = gingerbreadRow.nodeId,
+            depth = 3,
+            bounds = Rect(0, 0, 100, 100),
+            contentDescription = "Remove",
+            isTouchTarget = true,
+            isMergedDescendant = true,
+        )
+        val removeKitkat = createNode(
+            nodeId = "remove-kitkat",
+            parentNodeId = kitkatRow.nodeId,
+            depth = 3,
+            bounds = Rect(0, 100, 100, 200),
+            contentDescription = "Remove",
+            isTouchTarget = true,
+            isMergedDescendant = true,
+        )
+
+        val issues = rule.evaluateAll(
+            listOf(
+                collection,
+                gingerbreadRow,
+                kitkatRow,
+                removeGingerbread,
+                removeKitkat,
+            ),
+        )
+
+        assertEquals(2, issues.size)
+        assertTrue(issues.all { it.message.contains("'Remove'") })
+    }
+
+    @Test
+    fun `same description in separate collections is not a duplicate`() {
+        val firstCollection = createNode(
+            nodeId = "first-list",
+            isCollectionContainer = true,
+        )
+        val secondCollection = createNode(
+            nodeId = "second-list",
+            isCollectionContainer = true,
+        )
+        val first = createNode(
+            nodeId = "first-action",
+            parentNodeId = firstCollection.nodeId,
+            bounds = Rect(0, 0, 100, 100),
+            contentDescription = "Open item",
+            isTouchTarget = true,
+        )
+        val second = createNode(
+            nodeId = "second-action",
+            parentNodeId = secondCollection.nodeId,
+            bounds = Rect(0, 100, 100, 200),
+            contentDescription = "Open item",
+            isTouchTarget = true,
+        )
+
+        assertTrue(
+            rule.evaluateAll(listOf(firstCollection, secondCollection, first, second)).isEmpty(),
+        )
+    }
+
+    @Test
+    fun `parent and child copies of one label are not duplicates`() {
+        val parent = createNode(
+            nodeId = "card",
+            bounds = Rect(0, 0, 200, 200),
+            contentDescription = "Cupcake A tag line",
+            isTouchTarget = true,
+        )
+        val child = createNode(
+            nodeId = "card-image",
+            parentNodeId = parent.nodeId,
+            depth = 1,
+            bounds = Rect(20, 20, 180, 180),
+            contentDescription = "Cupcake A tag line",
+        )
+
+        assertTrue(rule.evaluateAll(listOf(parent, child)).isEmpty())
+    }
 }

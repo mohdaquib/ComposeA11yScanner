@@ -84,11 +84,16 @@ fun ScanSummaryBar(
 ) {
     var showReport by remember { mutableStateOf(false) }
 
-    // Retain last complete result so the sheet stays populated when state rolls
-    // back to Idle while the sheet is still open.
+    // Retain the result during non-idle transitions, but discard it when content invalidation
+    // returns the scanner to Idle so a report from the previous screen cannot remain open.
     var lastResult by remember { mutableStateOf<ScanResult?>(null) }
     LaunchedEffect(state) {
-        if (state is ScannerState.Complete) lastResult = state.result
+        if (state is ScannerState.Complete) {
+            lastResult = state.result
+        } else if (state is ScannerState.Idle) {
+            lastResult = null
+            showReport = false
+        }
     }
 
     Surface(
