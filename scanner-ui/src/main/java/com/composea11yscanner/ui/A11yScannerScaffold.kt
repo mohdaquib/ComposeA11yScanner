@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.composea11yscanner.core.model.A11yIssue
 import com.composea11yscanner.core.model.A11yNode
@@ -52,6 +54,8 @@ import com.composea11yscanner.core.model.ScannerState
  * @param config Scanner configuration applied to the controller.
  * @param modifier Modifier applied to the root scaffold.
  * @param issueOffsetY Vertical offset applied to issue highlights.
+ * @param summaryBarTopOffset Additional distance between the status bar and the scan summary.
+ * Use this when host content has a top app bar that must remain visible while scan results are shown.
  * @param content Host UI content being scanned.
  */
 @Composable
@@ -60,6 +64,7 @@ fun A11yScannerScaffold(
     config: ScannerConfig,
     modifier: Modifier = Modifier,
     issueOffsetY: Int = 0,
+    summaryBarTopOffset: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
     var scannerState by remember { mutableStateOf<ScannerState>(ScannerState.Idle) }
@@ -108,6 +113,8 @@ fun A11yScannerScaffold(
             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = summaryBarTopOffset)
                 .fillMaxWidth(),
         ) {
             ScanSummaryBar(
@@ -159,6 +166,7 @@ private fun A11yScannerScaffoldCompletePreview() {
                 state = ScannerState.Complete(result = previewScanResult()),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .statusBarsPadding()
                     .fillMaxWidth(),
             )
         }

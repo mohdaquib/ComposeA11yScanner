@@ -124,6 +124,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
         config = scannerConfig,
         modifier = modifier.fillMaxSize(),
         issueOffsetY = issueOffsetY,
+        summaryBarTopOffset = 64.dp,
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -147,6 +148,9 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
             SampleContent(
                 modifier = Modifier
                     .padding(innerPadding)
+                    // Keep this space stable so showing the scan summary never moves content
+                    // after the semantics bounds used by issue overlays have been captured.
+                    .padding(top = 56.dp)
                     .fillMaxSize(),
                 screens = screens,
                 selectedScreen = selectedScreen,
