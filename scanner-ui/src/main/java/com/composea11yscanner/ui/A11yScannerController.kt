@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Public SDK entry point for running accessibility scans.
@@ -47,6 +48,9 @@ class A11yScannerController(
     private val nodeProvider: () -> List<A11yNode>,
     private val screenDensity: Float,
 ) {
+    @Volatile
+    internal var currentState: ScannerState = ScannerState.Idle
+        private set
     private var config: ScannerConfig = ScannerConfig(
         enabledRules = ScannerRules.allRuleIds().toSet(),
     )
@@ -55,6 +59,7 @@ class A11yScannerController(
     // SupervisorJob: a rule exception cancels only the current scan job, not the whole scope.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var scanJob: Job? = null
+    private val scanGeneration = AtomicLong(0L)
 
     // replay = 1 so late subscribers immediately receive the latest state.
     // 64 extra slots is orders of magnitude more than needed (≤ ~10 states per scan),
@@ -106,10 +111,13 @@ class A11yScannerController(
      * and late subscribers receive the most recent state immediately via replay.
      *
      * Emission sequence: Scanning(0f) → Scanning(k/n) … → Scanning(1f) → Complete(result)
-     * or Complete(emptyResult) if there are no enabled rules or no nodes.
+     * or [ScannerState.Error] if no semantics nodes are available.
      */
     fun startScan(): Flow<ScannerState> {
-        stopScan()
+        val generation = scanGeneration.incrementAndGet()
+        cancelCurrentJob()
+        currentState = ScannerState.Scanning(0f)
+        _state.tryEmit(currentState)
 
         val standardRules = ScannerRules.buildRules(config, screenDensity)
 
@@ -128,7 +136,21 @@ class A11yScannerController(
             val nodes = withContext(Dispatchers.Main.immediate) {
                 nodeProvider()
             }
-            engine.scan(nodes).collect { _state.emit(it) }
+            if (generation != scanGeneration.get()) return@launch
+            if (nodes.isEmpty()) {
+                val state = ScannerState.Error(
+                    "No Compose semantics nodes were available for scanning. " +
+                        "Wait until the screen is laid out and try again.",
+                )
+                currentState = state
+                _state.emit(state)
+                return@launch
+            }
+            engine.scan(nodes).collect { state ->
+                if (generation != scanGeneration.get()) return@collect
+                currentState = state
+                _state.emit(state)
+            }
         }
 
         return _state.asSharedFlow()
@@ -136,18 +158,26 @@ class A11yScannerController(
 
     /** Stops any active scan and emits [ScannerState.Idle]. */
     fun clearState() {
-        stopScan()
+        scanGeneration.incrementAndGet()
+        cancelCurrentJob()
+        currentState = ScannerState.Idle
         _state.tryEmit(ScannerState.Idle)
     }
 
     /** Cancels the current scan if one is running. The [Flow] returned by [startScan] stops emitting. */
     fun stopScan() {
+        scanGeneration.incrementAndGet()
+        cancelCurrentJob()
+    }
+
+    private fun cancelCurrentJob() {
         scanJob?.cancel()
         scanJob = null
     }
 
     /** Cancels the internal [CoroutineScope]. Call when the host (Activity/Fragment/ViewModel) is destroyed. */
     fun destroy() {
+        stopScan()
         scope.cancel()
     }
 }

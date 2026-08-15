@@ -29,11 +29,30 @@ class MissingContentDescriptionRuleTest {
     }
 
     @Test
-    fun `merged descendant with no description is skipped`() {
+    fun `merged decorative image with no description is skipped`() {
         assertNull(
             rule.evaluate(
-                createNode(isTouchTarget = true, contentDescription = null, isMergedDescendant = true)
+                createNode(
+                    composableName = "Image",
+                    isTouchTarget = false,
+                    contentDescription = null,
+                    isMergedDescendant = true,
+                ),
             )
+        )
+    }
+
+    @Test
+    fun `merged interactive node with no description fails`() {
+        assertNotNull(
+            rule.evaluate(
+                createNode(
+                    composableName = "Button",
+                    isTouchTarget = true,
+                    contentDescription = null,
+                    isMergedDescendant = true,
+                ),
+            ),
         )
     }
 

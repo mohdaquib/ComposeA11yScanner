@@ -6,6 +6,7 @@ import android.graphics.Rect as AndroidRect
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
@@ -41,8 +42,12 @@ import com.composea11yscanner.ui.A11yIssueOverlay
 import com.composea11yscanner.ui.A11yNodeExtractor
 import com.composea11yscanner.ui.A11yScannerController
 import com.composea11yscanner.ui.IssueDetailPanel
+import com.composea11yscanner.ui.ReadinessFingerprint
 import com.composea11yscanner.ui.RenderedTextContrastAnalyzer
 import com.composea11yscanner.ui.ScanSummaryBar
+import com.composea11yscanner.ui.ScreenFingerprint
+import com.composea11yscanner.ui.calculateReadinessFingerprint
+import com.composea11yscanner.ui.calculateScreenFingerprint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -75,6 +80,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 object ComposeA11yScanner {
 
     private const val COMPOSE_HOST_LOG_TAG = "ComposeA11yHosts"
+    private const val SCAN_LIFECYCLE_LOG_TAG = "ComposeA11yLifecycle"
 
     /**
      * Active scanner entries keyed by activity. [LinkedHashMap] preserves insertion order so
@@ -110,6 +116,22 @@ object ComposeA11yScanner {
     fun install(
         activity: ComponentActivity,
         config: ScannerConfig = ScannerConfig(enabledRules = ScannerRules.allRuleIds().toSet()),
+    ) = installInternal(activity, config, destinationKeyProvider = null)
+
+    /**
+     * Installs the scanner with an explicit key for single-host Compose navigation.
+     * Return the current route, pane, or other stable destination identifier from the provider.
+     */
+    fun install(
+        activity: ComponentActivity,
+        destinationKeyProvider: () -> String?,
+        config: ScannerConfig = ScannerConfig(enabledRules = ScannerRules.allRuleIds().toSet()),
+    ) = installInternal(activity, config, destinationKeyProvider)
+
+    private fun installInternal(
+        activity: ComponentActivity,
+        config: ScannerConfig,
+        destinationKeyProvider: (() -> String?)?,
     ) {
         requireDebugBuild(activity)
         if (entries.containsKey(activity)) return
@@ -133,7 +155,16 @@ object ComposeA11yScanner {
         }
         activity.addContentView(overlayView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
-        entries[activity] = InstallEntry(controller, overlayView)
+        val entry = InstallEntry(
+            controller = controller,
+            overlayView = overlayView,
+            autoScan = config.autoScan,
+            screenSnapshotProvider = {
+                activity.currentScreenSnapshot(destinationKeyProvider)
+            },
+        )
+        entries[activity] = entry
+        entry.attach()
         activeController.value = controller
         activity.lifecycle.addObserver(AutoUninstallObserver(activity))
     }
@@ -187,6 +218,12 @@ object ComposeA11yScanner {
         return entries.values.lastOrNull()?.controller?.startScan() ?: emptyFlow()
     }
 
+    /** Invalidates the current result and schedules a scan for the latest destination. */
+    fun notifyScreenChanged() {
+        requireDebugBuild()
+        entries.values.lastOrNull()?.notifyScreenChanged()
+    }
+
     // ── Debug guard ─────────────────────────────────────────────────────────────
 
     private fun requireDebugBuild(context: Context) {
@@ -221,7 +258,11 @@ object ComposeA11yScanner {
     // Compose semantics snapshot is immutable once produced on the main thread.
     // runCatching provides a last-resort safety net in case of unexpected threading issues.
     private fun extractNodes(activity: ComponentActivity): List<A11yNode> =
-        runCatching { extractNodesUnchecked(activity) }.getOrDefault(emptyList())
+        runCatching { extractNodesUnchecked(activity) }
+            .onFailure { error ->
+                Log.e(COMPOSE_HOST_LOG_TAG, "Failed to extract Compose semantics", error)
+            }
+            .getOrDefault(emptyList())
 
     private fun extractNodesUnchecked(activity: ComponentActivity): List<A11yNode> {
         val overlayView = entries[activity]?.overlayView
@@ -236,7 +277,43 @@ object ComposeA11yScanner {
                 "visibleTextNodes=${selectedHost.visibleTextNodes}, " +
                 "visibleNodes=${selectedHost.visibleNodes}, depth=${selectedHost.depth}",
         )
-        return RenderedTextContrastAnalyzer(selectedHost.view).analyze(selectedHost.nodes)
+        val semanticNodes = selectedHost.nodes
+        return runCatching {
+            RenderedTextContrastAnalyzer(selectedHost.view).analyze(semanticNodes)
+        }.onFailure { error ->
+            // Rendered contrast is an optional enrichment step. A bitmap capture or pixel-analysis
+            // failure must not discard the semantics tree and turn the whole scan into an empty
+            // 100% result; all non-visual rules can still evaluate the original nodes.
+            Log.w(
+                COMPOSE_HOST_LOG_TAG,
+                "Rendered text contrast analysis failed; scanning semantic nodes without colors",
+                error,
+            )
+        }.getOrDefault(semanticNodes)
+    }
+
+    private fun ComponentActivity.currentScreenSnapshot(
+        destinationKeyProvider: (() -> String?)?,
+    ): ScreenSnapshot? {
+        val overlayView = entries[this]?.overlayView
+        val decorView = window.decorView as? ViewGroup ?: return null
+        val candidate = decorView
+            .findBestAbstractComposeView(excludeView = overlayView, logScores = false)
+            ?: return null
+        // A newly attached ComposeView can expose only its root node before the destination has
+        // produced semantics. Treat that state as not ready instead of reporting an empty 100% scan.
+        if (candidate.nodes.none { it.depth > 0 }) return null
+        val destinationKey = destinationKeyProvider?.let { provider ->
+            runCatching(provider)
+                .onFailure { error ->
+                    Log.w(SCAN_LIFECYCLE_LOG_TAG, "Destination key provider failed", error)
+                }
+                .getOrNull()
+        }
+        return ScreenSnapshot(
+            fingerprint = candidate.screenFingerprint(destinationKey),
+            readiness = candidate.readinessFingerprint(),
+        )
     }
 
     private fun AbstractComposeView.findSemanticsOwner(): SemanticsOwner? {
@@ -250,6 +327,7 @@ object ComposeA11yScanner {
 
     private fun ViewGroup.findBestAbstractComposeView(
         excludeView: View?,
+        logScores: Boolean = true,
     ): ComposeHostCandidate? {
         val candidates = mutableListOf<ComposeHostCandidate>()
         collectComposeHostCandidates(
@@ -257,13 +335,15 @@ object ComposeA11yScanner {
             depth = 0,
             candidates = candidates,
         )
-        candidates.forEach { candidate ->
-            Log.d(
-                COMPOSE_HOST_LOG_TAG,
-                "Candidate score: identity=${System.identityHashCode(candidate.view)}, " +
-                    "visibleTextNodes=${candidate.visibleTextNodes}, " +
-                    "visibleNodes=${candidate.visibleNodes}, depth=${candidate.depth}",
-            )
+        if (logScores) {
+            candidates.forEach { candidate ->
+                Log.d(
+                    COMPOSE_HOST_LOG_TAG,
+                    "Candidate score: identity=${System.identityHashCode(candidate.view)}, " +
+                        "visibleTextNodes=${candidate.visibleTextNodes}, " +
+                        "visibleNodes=${candidate.visibleNodes}, depth=${candidate.depth}",
+                )
+            }
         }
         return candidates.maxWithOrNull(
             compareBy<ComposeHostCandidate> { it.visibleTextNodes }
@@ -309,8 +389,7 @@ object ComposeA11yScanner {
             view = this,
             nodes = nodes,
             depth = depth,
-            visibleTextNodes = visibleNodes.count { it.composableName == "Text" },
-            visibleNodes = visibleNodes.size,
+            visibleSemanticNodes = visibleNodes,
         )
     }
 
@@ -375,12 +454,176 @@ object ComposeA11yScanner {
     private class InstallEntry(
         val controller: A11yScannerController,
         val overlayView: ComposeView,
-    ) {
+        private val autoScan: Boolean,
+        private val screenSnapshotProvider: () -> ScreenSnapshot?,
+    ) : ViewTreeObserver.OnPreDrawListener {
+        private var baselineFingerprint: ScreenFingerprint? = null
+        private var completedScanId: String? = null
+        private var lastCheckUptimeMillis = 0L
+        private var pendingScreenFingerprint: ScreenFingerprint? = null
+        private var rescanRequestedAtUptimeMillis: Long? = null
+        private var pendingInitialReadiness: ReadinessFingerprint? = null
+        private var initialScanRequestedAtUptimeMillis: Long? = null
+        private val initialScanRunnable = object : Runnable {
+            override fun run() {
+                val now = android.os.SystemClock.uptimeMillis()
+                val deadlineReached = initialScanRequestedAtUptimeMillis?.let { requestedAt ->
+                    now - requestedAt >= MAX_INITIAL_SETTLE_MILLIS
+                } ?: true
+                val snapshot = screenSnapshotProvider()
+                if (snapshot == null && !deadlineReached) return scheduleInitialScanCheck()
+
+                val readiness = snapshot?.readiness
+                if (readiness != null && readiness != pendingInitialReadiness && !deadlineReached) {
+                    pendingInitialReadiness = readiness
+                    Log.d(
+                        SCAN_LIFECYCLE_LOG_TAG,
+                        "Initial semantics changed; waiting for a stable sample: $readiness",
+                    )
+                    return scheduleInitialScanCheck()
+                }
+
+                Log.d(
+                    SCAN_LIFECYCLE_LOG_TAG,
+                    if (deadlineReached) {
+                        "Initial settle deadline reached; starting scan"
+                    } else {
+                        "Initial host ready; starting scan"
+                    },
+                )
+                pendingInitialReadiness = null
+                initialScanRequestedAtUptimeMillis = null
+                controller.startScan()
+            }
+        }
+        private val rescanRunnable = object : Runnable {
+            override fun run() {
+                val expectedFingerprint = pendingScreenFingerprint ?: return
+                val now = android.os.SystemClock.uptimeMillis()
+                val deadlineReached = rescanRequestedAtUptimeMillis?.let { requestedAt ->
+                    now - requestedAt >= MAX_RESCAN_SETTLE_MILLIS
+                } ?: true
+                val currentFingerprint = screenSnapshotProvider()?.fingerprint
+
+                if (currentFingerprint == null && !deadlineReached) return scheduleRescan()
+                if (
+                    currentFingerprint != null &&
+                    currentFingerprint != expectedFingerprint &&
+                    !deadlineReached
+                ) {
+                    pendingScreenFingerprint = currentFingerprint
+                    return scheduleRescan()
+                }
+
+                Log.d(
+                    SCAN_LIFECYCLE_LOG_TAG,
+                    if (deadlineReached) {
+                        "Rescan settle deadline reached; starting scan"
+                    } else {
+                        "Destination stable; starting rescan"
+                    },
+                )
+                pendingScreenFingerprint = null
+                rescanRequestedAtUptimeMillis = null
+                controller.startScan()
+            }
+        }
+
+        fun attach() {
+            overlayView.rootView.viewTreeObserver.addOnPreDrawListener(this)
+            if (autoScan) requestInitialScan()
+        }
+
+        override fun onPreDraw(): Boolean {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - lastCheckUptimeMillis < SCREEN_CHECK_INTERVAL_MILLIS) return true
+            lastCheckUptimeMillis = now
+
+            val complete = controller.currentState as? ScannerState.Complete
+            if (complete == null) {
+                completedScanId = null
+                baselineFingerprint = null
+                return true
+            }
+
+            val currentFingerprint = screenSnapshotProvider()?.fingerprint ?: return true
+            if (completedScanId != complete.result.scanId) {
+                completedScanId = complete.result.scanId
+                baselineFingerprint = currentFingerprint
+                Log.d(SCAN_LIFECYCLE_LOG_TAG, "Scan baseline recorded: $currentFingerprint")
+                return true
+            }
+
+            if (baselineFingerprint != currentFingerprint) {
+                Log.d(
+                    SCAN_LIFECYCLE_LOG_TAG,
+                    "Screen changed: previous=$baselineFingerprint, current=$currentFingerprint",
+                )
+                baselineFingerprint = null
+                completedScanId = null
+                controller.clearState()
+                if (autoScan) {
+                    pendingScreenFingerprint = currentFingerprint
+                    rescanRequestedAtUptimeMillis = android.os.SystemClock.uptimeMillis()
+                    scheduleRescan()
+                }
+            }
+            return true
+        }
+
+        private fun scheduleRescan() {
+            overlayView.removeCallbacks(rescanRunnable)
+            overlayView.postDelayed(rescanRunnable, RESCAN_SETTLE_DELAY_MILLIS)
+        }
+
+        private fun requestInitialScan() {
+            pendingInitialReadiness = screenSnapshotProvider()?.readiness
+            initialScanRequestedAtUptimeMillis = android.os.SystemClock.uptimeMillis()
+            scheduleInitialScanCheck()
+        }
+
+        fun notifyScreenChanged() {
+            Log.d(SCAN_LIFECYCLE_LOG_TAG, "Screen change explicitly notified")
+            baselineFingerprint = null
+            completedScanId = null
+            controller.clearState()
+            if (!autoScan) return
+
+            val currentFingerprint = screenSnapshotProvider()?.fingerprint
+            if (currentFingerprint == null) {
+                requestInitialScan()
+            } else {
+                pendingScreenFingerprint = currentFingerprint
+                rescanRequestedAtUptimeMillis = android.os.SystemClock.uptimeMillis()
+                scheduleRescan()
+            }
+        }
+
+        private fun scheduleInitialScanCheck() {
+            overlayView.removeCallbacks(initialScanRunnable)
+            overlayView.postDelayed(initialScanRunnable, RESCAN_SETTLE_DELAY_MILLIS)
+        }
+
         fun detach() {
+            val observer = overlayView.rootView.viewTreeObserver
+            if (observer.isAlive) observer.removeOnPreDrawListener(this)
+            overlayView.removeCallbacks(initialScanRunnable)
+            overlayView.removeCallbacks(rescanRunnable)
+            pendingScreenFingerprint = null
+            rescanRequestedAtUptimeMillis = null
+            pendingInitialReadiness = null
+            initialScanRequestedAtUptimeMillis = null
             overlayView.disposeComposition()
             (overlayView.parent as? ViewGroup)?.removeView(overlayView)
             controller.stopScan()
             controller.destroy()
+        }
+
+        private companion object {
+            const val SCREEN_CHECK_INTERVAL_MILLIS = 500L
+            const val RESCAN_SETTLE_DELAY_MILLIS = 300L
+            const val MAX_RESCAN_SETTLE_MILLIS = 1_500L
+            const val MAX_INITIAL_SETTLE_MILLIS = 1_500L
         }
     }
 
@@ -388,8 +631,33 @@ object ComposeA11yScanner {
         val view: AbstractComposeView,
         val nodes: List<A11yNode>,
         val depth: Int,
-        val visibleTextNodes: Int,
-        val visibleNodes: Int,
+        val visibleSemanticNodes: List<A11yNode>,
+    ) {
+        val visibleTextNodes: Int
+            get() = visibleSemanticNodes.count { it.composableName == "Text" }
+
+        val visibleNodes: Int
+            get() = visibleSemanticNodes.size
+
+        fun screenFingerprint(destinationKey: String?): ScreenFingerprint {
+            return calculateScreenFingerprint(
+                hostIdentity = System.identityHashCode(view),
+                nodes = nodes,
+                destinationKey = destinationKey,
+            )
+        }
+
+        fun readinessFingerprint(): ReadinessFingerprint {
+            return calculateReadinessFingerprint(
+                hostIdentity = System.identityHashCode(view),
+                visibleNodes = visibleSemanticNodes,
+            )
+        }
+    }
+
+    private data class ScreenSnapshot(
+        val fingerprint: ScreenFingerprint,
+        val readiness: ReadinessFingerprint,
     )
 
     private class AutoUninstallObserver(
@@ -424,17 +692,15 @@ private fun ScannerOverlayContent(
     LaunchedEffect(Unit) {
         controller.stateFlow.collect { state ->
             scannerState = state
-            if (state is ScannerState.Scanning) selectedIssues = emptyList()
+            if (state !is ScannerState.Complete) selectedIssues = emptyList()
         }
     }
 
     LaunchedEffect(config) {
         controller.configure(config)
         if (!config.autoScan) {
-            controller.stopScan()
-            return@LaunchedEffect
+            controller.clearState()
         }
-        controller.startScan()
     }
 
     val scanResult = (scannerState as? ScannerState.Complete)?.result

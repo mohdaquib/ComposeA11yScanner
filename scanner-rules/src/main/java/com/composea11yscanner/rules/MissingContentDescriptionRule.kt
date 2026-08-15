@@ -26,14 +26,15 @@ class MissingContentDescriptionRule : BaseA11yRule() {
         // They are not currently rendered or reachable, so do not report them.
         if (node.bounds.isEmpty()) return null
 
-        // Merged descendants are announced via their parent — skip them.
-        if (node.isMergedDescendant) return null
-
         val isInteractive = node.isTouchTarget
         // Covers Image, AsyncImage, SubcomposeAsyncImage, etc.
         val isImage = node.composableName.contains("Image", ignoreCase = true)
 
         if (!isInteractive && !isImage) return null
+        // A decorative image under merging semantics is announced through its parent. An
+        // interactive descendant, however, owns an action and remains an independent control;
+        // suppressing it hides unlabeled IconButtons such as JetSnack's collection arrows.
+        if (node.isMergedDescendant && !isInteractive) return null
         if (!node.contentDescription.isNullOrBlank()) return null
 
         return issue(
