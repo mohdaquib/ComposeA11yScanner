@@ -63,7 +63,7 @@ import kotlinx.coroutines.flow.flatMapLatest
  * only needed if the scanner should stop before destroy.
  *
  * **All three methods throw [IllegalStateException] in non-debug builds** (i.e., when
- * [ApplicationInfo.FLAG_DEBUGGABLE] is absent from the running APK), unless [allowInProd] is
+ * [ApplicationInfo.FLAG_DEBUGGABLE] is absent from the running APK), unless [toggleScanner] is
  * explicitly enabled. This is the correct runtime check for library code; `BuildConfig.DEBUG`
  * in a library module does not reflect the consuming app's build type.
  *
@@ -94,18 +94,20 @@ object ComposeA11yScanner {
     /** Set during [install] so that [scan] can perform the debug-build check without a [Context]. */
     @Volatile private var cachedAppContext: Context? = null
 
+    @Volatile private var prodAllowed = false
+
     /** Allows explicit scanner use in non-debuggable builds. */
-    @Volatile var allowInProd = false
-        set(value) {
-            field = value
-            if (value) {
-                resumedActivity?.let { activity ->
-                    resumedConfig?.let { install(activity, it) }
-                }
-            } else if (cachedAppContext?.isDebuggable() == false) {
-                entries.keys.toList().forEach(::remove)
+    fun toggleScanner(enabled: Boolean) {
+        if (prodAllowed == enabled) return
+        prodAllowed = enabled
+        if (enabled) {
+            resumedActivity?.let { activity ->
+                resumedConfig?.let { install(activity, it) }
             }
+        } else if (cachedAppContext?.isDebuggable() == false) {
+            entries.keys.toList().forEach(::remove)
         }
+    }
 
     private var resumedActivity: ComponentActivity? = null
     private var resumedConfig: ScannerConfig? = null
@@ -248,7 +250,7 @@ object ComposeA11yScanner {
     // ── Debug guard ─────────────────────────────────────────────────────────────
 
     private fun requireDebugBuild(context: Context) {
-        if (!allowInProd && !context.isDebuggable()) {
+        if (!prodAllowed && !context.isDebuggable()) {
             throw IllegalStateException(
                 "ComposeA11yScanner must only be used in debug builds. " +
                     "Remove all ComposeA11yScanner calls before shipping to production.",
@@ -264,7 +266,7 @@ object ComposeA11yScanner {
     internal fun resume(activity: ComponentActivity, config: ScannerConfig) {
         resumedActivity = activity
         resumedConfig = config
-        if (activity.isDebuggable() || allowInProd) install(activity, config)
+        if (activity.isDebuggable() || prodAllowed) install(activity, config)
     }
 
     internal fun pause(activity: ComponentActivity) {
