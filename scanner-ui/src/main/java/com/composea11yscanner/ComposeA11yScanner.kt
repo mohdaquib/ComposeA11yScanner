@@ -116,8 +116,8 @@ object ComposeA11yScanner {
     fun toggleScanner(enabled: Boolean) = scannerLifecycle.toggle(enabled)
 
     /**
-     * Controller for the most recently resumed installed activity. Keeping this as state allows
-     * callers to subscribe before automatic activity-resume installation has completed.
+     * Selected controller, preferring the latest resumed automatic activity and otherwise the
+     * latest surviving manual installation.
      */
     private val activeController = MutableStateFlow<A11yScannerController?>(null)
 
@@ -235,7 +235,8 @@ object ComposeA11yScanner {
     )
 
     /**
-     * Returns a [Flow] of [ScannerState] for the most recently resumed installed activity.
+     * Returns scanner state for the latest resumed automatic activity, or the latest surviving
+     * manual installation when automatic routing has no active entry.
      *
      * The backing [kotlinx.coroutines.flow.SharedFlow] has `replay = 1`, so late subscribers
      * immediately receive the current state. The returned flow can be collected before automatic
@@ -253,7 +254,7 @@ object ComposeA11yScanner {
     }
 
     /**
-     * Starts a scan for the most recently resumed installed activity and returns its state flow.
+     * Starts a scan for the selected automatic or manual installation and returns its state flow.
      *
      * This is useful for consumer-side triggers such as long press, shake, or debug menu actions.
      * Returns an empty flow when no scanner is installed.

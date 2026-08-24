@@ -199,7 +199,9 @@ ComposeA11yScanner.install(
 )
 ```
 
-Do not combine automatic and manual installation. Repeated installation on the same activity is ignored, but keeping one ownership path makes configuration predictable.
+Do not combine automatic and manual installation. Repeated installation on the same activity is
+ignored, but keeping one ownership path makes configuration predictable. With multiple manual
+activities, global APIs target the latest surviving installation and fall back after removal.
 
 For Navigation Compose, provide the current route when installing manually. An explicit key reliably
 invalidates stale results even when two destinations have the same semantics structure:
