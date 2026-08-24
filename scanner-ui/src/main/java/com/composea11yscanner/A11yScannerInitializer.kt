@@ -30,7 +30,6 @@ class A11yScannerInitializer : Initializer<Unit> {
         // Seed the context before the debug check so public API calls can distinguish a release
         // build from an early call made before the first activity controller is installed.
         ComposeA11yScanner.initialize(appContext)
-        if (!appContext.isDebuggable()) return
 
         val application = appContext as? Application ?: return
         val config = appContext.readScannerConfig()
@@ -39,6 +38,7 @@ class A11yScannerInitializer : Initializer<Unit> {
             object : Application.ActivityLifecycleCallbacks {
                 override fun onActivityResumed(activity: Activity) {
                     val componentActivity = activity as? ComponentActivity ?: return
+                    if (!componentActivity.isDebuggable() && !ComposeA11yScanner.allowInProd) return
                     componentActivity.window.decorView.post {
                         if (componentActivity.isDestroyed) return@post
                         ComposeA11yScanner.install(componentActivity, config)
