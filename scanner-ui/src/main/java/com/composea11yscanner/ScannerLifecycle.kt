@@ -7,6 +7,7 @@ internal class ScannerLifecycle<Activity, Config>(
     private val removeProd: () -> Unit,
 ) {
     private val resumed = LinkedHashMap<Activity, Config>()
+    private val suppressed = mutableSetOf<Activity>()
 
     @Volatile private var prodAllowed = false
 
@@ -14,12 +15,18 @@ internal class ScannerLifecycle<Activity, Config>(
         checkMainThread()
         if (prodAllowed == enabled) return
         prodAllowed = enabled
-        if (enabled) resumed.forEach(install) else removeProd()
+        if (enabled) {
+            resumed.filterKeys { it !in suppressed }.forEach(install)
+        } else {
+            removeProd()
+        }
     }
 
     fun resume(activity: Activity, config: Config) {
         checkMainThread()
+        resumed.remove(activity)
         resumed[activity] = config
+        suppressed.remove(activity)
         if (isDebuggable(activity) || prodAllowed) install(activity, config)
     }
 
@@ -27,6 +34,19 @@ internal class ScannerLifecycle<Activity, Config>(
         checkMainThread()
         resumed.remove(activity)
     }
+
+    fun uninstall(activity: Activity) {
+        checkMainThread()
+        suppressed += activity
+    }
+
+    fun destroy(activity: Activity) {
+        checkMainThread()
+        resumed.remove(activity)
+        suppressed.remove(activity)
+    }
+
+    fun resumedActivities(): List<Activity> = resumed.keys.filterNot(suppressed::contains)
 
     fun isAllowed(debuggable: Boolean) = debuggable || prodAllowed
 }

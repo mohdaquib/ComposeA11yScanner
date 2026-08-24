@@ -56,6 +56,35 @@ class ScannerLifecycleTest {
     }
 
     @Test
+    fun `pause exposes previous resumed activity`() {
+        val lifecycle = lifecycle()
+        lifecycle.resume("first", Unit)
+        lifecycle.resume("second", Unit)
+
+        lifecycle.pause("second")
+
+        assertEquals(listOf("first"), lifecycle.resumedActivities())
+    }
+
+    @Test
+    fun `explicit uninstall is suppressed until next resume`() {
+        val installed = mutableListOf<String>()
+        val lifecycle = lifecycle(
+            debugActivities = setOf("debug"),
+            installed = installed,
+        )
+        lifecycle.resume("debug", Unit)
+        installed.clear()
+        lifecycle.uninstall("debug")
+
+        lifecycle.toggle(true)
+
+        assertTrue(installed.isEmpty())
+        lifecycle.resume("debug", Unit)
+        assertEquals(listOf("debug"), installed)
+    }
+
+    @Test
     fun `disable removes production installs`() {
         val installed = mutableListOf<String>()
         val lifecycle = lifecycle(installed = installed)

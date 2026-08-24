@@ -108,7 +108,8 @@ permission; the app must still call `install()` for each activity.
 
 ### 2. Trigger a scan
 
-Call the API from a debug source set, such as `src/debug/java/.../ScannerActions.kt`:
+For debug-only integration, call the API from `src/debug`. For trusted non-debuggable builds,
+place the trigger in `src/main` or the trusted variant's source set:
 
 ```kotlin
 import com.composea11yscanner.ComposeA11yScanner
@@ -122,7 +123,8 @@ its state.
 
 ### Optional: shake to scan
 
-Add `scanOnShake()` to a debug-only composable that remains active while the screen is visible:
+Add `scanOnShake()` to a composable compiled into the enabled variant: `src/debug` for debug-only
+integration, or `src/main`/the trusted source set for non-debuggable integration:
 
 ```kotlin
 import com.composea11yscanner.triggers.scanOnShake
