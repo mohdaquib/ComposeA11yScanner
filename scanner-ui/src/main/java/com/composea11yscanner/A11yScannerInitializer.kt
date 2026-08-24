@@ -59,7 +59,7 @@ class A11yScannerInitializer : Initializer<Unit> {
                 override fun onActivityStopped(activity: Activity) = Unit
                 override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
                 override fun onActivityDestroyed(activity: Activity) {
-                    (activity as? ComponentActivity)?.let(ComposeA11yScanner::destroy)
+                    (activity as? ComponentActivity)?.let(ComposeA11yScanner::pause)
                 }
             },
         )

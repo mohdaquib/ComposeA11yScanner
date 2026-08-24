@@ -206,7 +206,7 @@ object ComposeA11yScanner {
      */
     fun uninstall(activity: ComponentActivity) {
         requireDebugBuild(activity)
-        scannerLifecycle.uninstall(activity)
+        scannerLifecycle.pause(activity)
         remove(activity)
     }
 
@@ -284,11 +284,6 @@ object ComposeA11yScanner {
 
     internal fun pause(activity: ComponentActivity) {
         scannerLifecycle.pause(activity)
-        routeActive()
-    }
-
-    internal fun destroy(activity: ComponentActivity) {
-        scannerLifecycle.destroy(activity)
         routeActive()
     }
 

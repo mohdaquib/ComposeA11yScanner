@@ -67,7 +67,7 @@ class ScannerLifecycleTest {
     }
 
     @Test
-    fun `explicit uninstall is suppressed until next resume`() {
+    fun `removed activity is ignored until next resume`() {
         val installed = mutableListOf<String>()
         val lifecycle = lifecycle(
             debugActivities = setOf("debug"),
@@ -75,7 +75,7 @@ class ScannerLifecycleTest {
         )
         lifecycle.resume("debug", Unit)
         installed.clear()
-        lifecycle.uninstall("debug")
+        lifecycle.pause("debug")
 
         lifecycle.toggle(true)
 
