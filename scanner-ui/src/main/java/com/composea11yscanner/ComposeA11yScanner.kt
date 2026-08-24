@@ -96,6 +96,19 @@ object ComposeA11yScanner {
 
     /** Allows explicit scanner use in non-debuggable builds. */
     @Volatile var allowInProd = false
+        set(value) {
+            field = value
+            if (value) {
+                resumedActivity?.let { activity ->
+                    resumedConfig?.let { install(activity, it) }
+                }
+            } else if (cachedAppContext?.isDebuggable() == false) {
+                entries.keys.toList().forEach(::remove)
+            }
+        }
+
+    private var resumedActivity: ComponentActivity? = null
+    private var resumedConfig: ScannerConfig? = null
 
     /**
      * Controller for the most recently installed activity. Keeping this as state allows callers
@@ -186,6 +199,10 @@ object ComposeA11yScanner {
      */
     fun uninstall(activity: ComponentActivity) {
         requireDebugBuild(activity)
+        remove(activity)
+    }
+
+    private fun remove(activity: ComponentActivity) {
         entries.remove(activity)?.detach()
         activeController.value = entries.values.lastOrNull()?.controller
     }
@@ -231,9 +248,7 @@ object ComposeA11yScanner {
     // ── Debug guard ─────────────────────────────────────────────────────────────
 
     private fun requireDebugBuild(context: Context) {
-        if (!allowInProd &&
-            context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0
-        ) {
+        if (!allowInProd && !context.isDebuggable()) {
             throw IllegalStateException(
                 "ComposeA11yScanner must only be used in debug builds. " +
                     "Remove all ComposeA11yScanner calls before shipping to production.",
@@ -245,6 +260,21 @@ object ComposeA11yScanner {
     internal fun initialize(context: Context) {
         cachedAppContext = context.applicationContext
     }
+
+    internal fun resume(activity: ComponentActivity, config: ScannerConfig) {
+        resumedActivity = activity
+        resumedConfig = config
+        if (activity.isDebuggable() || allowInProd) install(activity, config)
+    }
+
+    internal fun pause(activity: ComponentActivity) {
+        if (resumedActivity !== activity) return
+        resumedActivity = null
+        resumedConfig = null
+    }
+
+    private fun Context.isDebuggable(): Boolean =
+        applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     // Overload for scan(), which has no Context parameter.
     private fun requireDebugBuild() {

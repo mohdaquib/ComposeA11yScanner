@@ -3,7 +3,6 @@ package com.composea11yscanner
 import android.app.Activity
 import android.app.Application
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,7 +11,7 @@ import com.composea11yscanner.core.model.ScannerConfig
 import com.composea11yscanner.rules.ScannerRules
 
 /**
- * AndroidX App Startup initializer for installing [ComposeA11yScanner] in debug builds.
+ * AndroidX App Startup initializer for installing [ComposeA11yScanner] in allowed builds.
  *
  * Configure the scanner from the app manifest with:
  * - `a11y_scanner_min_contrast`
@@ -38,16 +37,17 @@ class A11yScannerInitializer : Initializer<Unit> {
             object : Application.ActivityLifecycleCallbacks {
                 override fun onActivityResumed(activity: Activity) {
                     val componentActivity = activity as? ComponentActivity ?: return
-                    if (!componentActivity.isDebuggable() && !ComposeA11yScanner.allowInProd) return
                     componentActivity.window.decorView.post {
                         if (componentActivity.isDestroyed) return@post
-                        ComposeA11yScanner.install(componentActivity, config)
+                        ComposeA11yScanner.resume(componentActivity, config)
                     }
                 }
 
                 override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
                 override fun onActivityStarted(activity: Activity) = Unit
-                override fun onActivityPaused(activity: Activity) = Unit
+                override fun onActivityPaused(activity: Activity) {
+                    (activity as? ComponentActivity)?.let(ComposeA11yScanner::pause)
+                }
                 override fun onActivityStopped(activity: Activity) = Unit
                 override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
                 override fun onActivityDestroyed(activity: Activity) = Unit
@@ -61,9 +61,6 @@ class A11yScannerInitializer : Initializer<Unit> {
      * @return Empty list because the scanner has no initializer dependencies.
      */
     override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()
-
-    private fun Context.isDebuggable(): Boolean =
-        applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     private fun Context.readScannerConfig(): ScannerConfig {
         val metadata = applicationMetadata()
