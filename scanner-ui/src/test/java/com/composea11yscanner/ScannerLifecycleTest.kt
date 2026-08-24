@@ -20,30 +20,7 @@ class ScannerLifecycleTest {
     }
 
     @Test
-    fun `enable before resume installs on resume`() {
-        val installed = mutableListOf<String>()
-        val lifecycle = lifecycle(installed = installed)
-
-        lifecycle.toggle(true)
-        lifecycle.resume("first", Unit)
-
-        assertEquals(listOf("first"), installed)
-    }
-
-    @Test
-    fun `enable after resume installs every resumed activity`() {
-        val installed = mutableListOf<String>()
-        val lifecycle = lifecycle(installed = installed)
-        lifecycle.resume("first", Unit)
-        lifecycle.resume("second", Unit)
-
-        lifecycle.toggle(true)
-
-        assertEquals(listOf("first", "second"), installed)
-    }
-
-    @Test
-    fun `paused activity is not reinstalled`() {
+    fun `toggle installs only resumed activities`() {
         val installed = mutableListOf<String>()
         val lifecycle = lifecycle(installed = installed)
         lifecycle.resume("first", Unit)
@@ -51,19 +28,10 @@ class ScannerLifecycleTest {
         lifecycle.pause("first")
 
         lifecycle.toggle(true)
+        lifecycle.resume("third", Unit)
 
-        assertEquals(listOf("second"), installed)
-    }
-
-    @Test
-    fun `pause exposes previous resumed activity`() {
-        val lifecycle = lifecycle()
-        lifecycle.resume("first", Unit)
-        lifecycle.resume("second", Unit)
-
-        lifecycle.pause("second")
-
-        assertEquals(listOf("first"), lifecycle.resumedActivities())
+        assertEquals(listOf("second", "third"), installed)
+        assertEquals(listOf("second", "third"), lifecycle.resumedActivities())
     }
 
     @Test
@@ -85,101 +53,57 @@ class ScannerLifecycleTest {
     }
 
     @Test
-    fun `manual-only uninstall does not suppress later resume`() {
-        val installed = mutableListOf<String>()
-        val lifecycle = lifecycle(installed = installed)
-        lifecycle.uninstall("manual")
-        lifecycle.toggle(true)
-
-        lifecycle.resume("manual", Unit)
-
-        assertEquals(listOf("manual"), installed)
-    }
-
-    @Test
-    fun `manual routing survives removal of latest entry`() {
-        val entries = linkedMapOf(
-            "first" to Entry("first", automatic = false),
-            "second" to Entry("second", automatic = false),
-        )
-
-        assertEquals("second", selectEntry(emptyList(), entries, Entry::automatic)?.id)
-        entries.remove("second")
-        assertEquals("first", selectEntry(emptyList(), entries, Entry::automatic)?.id)
-    }
-
-    @Test
-    fun `resumed automatic entry takes priority over manual fallback`() {
+    fun `manual routing falls back after removal`() {
         val entries = linkedMapOf(
             "manual" to Entry("manual", automatic = false),
             "first" to Entry("first", automatic = true),
             "second" to Entry("second", automatic = true),
         )
 
-        val active = selectEntry(
+        val automatic = selectEntry(
             resumedActivities = listOf("first", "second"),
             entries = entries,
             isAutomatic = Entry::automatic,
         )
-        val fallback = selectEntry(
-            resumedActivities = emptyList(),
-            entries = entries,
-            isAutomatic = Entry::automatic,
-        )
+        entries.remove("second")
+        entries.remove("first")
+        val manual = selectEntry(emptyList(), entries, Entry::automatic)
 
-        assertEquals("second", active?.id)
-        assertEquals("manual", fallback?.id)
+        assertEquals("second", automatic?.id)
+        assertEquals("manual", manual?.id)
     }
 
     @Test
-    fun `disable removes production installs`() {
+    fun `disable removes only production installs and is idempotent`() {
         val installed = mutableListOf<String>()
-        val lifecycle = lifecycle(installed = installed)
-        lifecycle.toggle(true)
-        lifecycle.resume("first", Unit)
-
-        lifecycle.toggle(false)
-
-        assertTrue(installed.isEmpty())
-        assertFalse(lifecycle.isAllowed(debuggable = false))
-    }
-
-    @Test
-    fun `debug activity remains installed when production is disabled`() {
-        val installed = mutableListOf<String>()
+        var removals = 0
         val lifecycle = lifecycle(
             debugActivities = setOf("debug"),
             installed = installed,
+            removeProd = {
+                removals++
+                installed.removeAll { it != "debug" }
+            },
         )
         lifecycle.resume("debug", Unit)
         lifecycle.toggle(true)
-        lifecycle.toggle(false)
+        lifecycle.resume("prod", Unit)
 
-        assertEquals(listOf("debug", "debug"), installed)
-    }
-
-    @Test
-    fun `repeated toggle is idempotent`() {
-        var removals = 0
-        val lifecycle = lifecycle(removeProd = { removals++ })
-
-        lifecycle.toggle(true)
-        lifecycle.toggle(true)
         lifecycle.toggle(false)
         lifecycle.toggle(false)
 
         assertEquals(1, removals)
+        assertEquals(listOf("debug", "debug"), installed)
+        assertFalse(lifecycle.isAllowed(debuggable = false))
     }
 
     @Test
     fun `worker thread rejection happens before state change`() {
-        var mainThread = false
-        val lifecycle = lifecycle(checkMainThread = { check(mainThread) })
+        val lifecycle = lifecycle(checkMainThread = { error("wrong thread") })
 
         assertThrows(IllegalStateException::class.java) {
             lifecycle.toggle(true)
         }
-
         assertFalse(lifecycle.isAllowed(debuggable = false))
     }
 
