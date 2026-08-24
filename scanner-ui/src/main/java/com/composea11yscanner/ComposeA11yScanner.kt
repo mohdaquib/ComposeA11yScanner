@@ -162,7 +162,6 @@ object ComposeA11yScanner {
         requireDebugBuild(activity)
         entries[activity]?.let { entry ->
             if (automatic) entry.automatic = true
-            activeController.value = entry.controller
             return
         }
 
@@ -264,6 +263,12 @@ object ComposeA11yScanner {
      */
     fun triggerScan(): Flow<ScannerState> {
         requireDebugBuild()
+        return activeController.value?.startScan() ?: emptyFlow()
+    }
+
+    internal fun triggerIfEnabled(): Flow<ScannerState> {
+        val context = cachedAppContext ?: return emptyFlow()
+        if (!scannerLifecycle.isAllowed(context.isDebuggable())) return emptyFlow()
         return activeController.value?.startScan() ?: emptyFlow()
     }
 
