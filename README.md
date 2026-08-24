@@ -10,9 +10,9 @@ problems that are not available from the Compose semantics tree alone.
 [![API Docs](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/docs.yml/badge.svg)](https://mohdaquib.github.io/ComposeA11yScanner/)
 [![JitPack](https://jitpack.io/v/mohdaquib/ComposeA11yScanner.svg)](https://jitpack.io/#mohdaquib/ComposeA11yScanner)
 
-ComposeA11yScanner is a debug-only runtime scanner that finds accessibility issues in Jetpack
-Compose and highlights them directly on the rendered UI. Inspect the affected element, understand
-the problem, and see a suggested fix without leaving the app.
+ComposeA11yScanner is a debug-first runtime scanner that finds accessibility issues in Jetpack
+Compose and highlights them directly on the rendered UI. Non-debuggable builds are denied by
+default and can opt in explicitly for trusted internal use.
 
 ![Annotated GIF showing the Compose A11y Scanner issue summary, view highlights, and issue detail sheet in the sample app](docs/overlay-demo.gif)
 
@@ -22,8 +22,8 @@ the problem, and see a suggested fix without leaving the app.
 - **Semantics and rendered analysis** - rules inspect Compose semantics, while text contrast is
   estimated from a captured Compose host.
 - **Actionable guidance** - every finding includes its severity, WCAG reference, and a suggested fix.
-- **Minimal setup** - add one debug dependency; AndroidX Startup handles installation.
-- **Debug-only integration** - `debugImplementation` keeps the scanner out of release builds.
+- **Minimal setup** - AndroidX Startup handles activity tracking and installation.
+- **Default-deny integration** - debug builds work automatically; trusted builds must opt in.
 - **Extensible rules** - use the bundled rules or add checks for your own accessibility standards.
 
 ## What's new in 2.1.0
@@ -80,8 +80,31 @@ That is all the integration required. AndroidX Startup attaches the overlay and 
 scan for every `ComponentActivity` in a debuggable app.
 
 > [!IMPORTANT]
-> Keep the dependency and all direct scanner calls in debug source sets. Do not add the scanner
-> with `implementation` or reference it from release sources.
+> `debugImplementation` remains the recommended setup and keeps scanner code out of release builds.
+
+### Trusted non-debuggable builds
+
+Use `implementation` only when a trusted internal build must run the scanner without being
+Android-debuggable:
+
+```kotlin
+dependencies {
+    implementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:<version>")
+}
+```
+
+Enable or disable it from the main thread whenever the environment changes:
+
+```kotlin
+ComposeA11yScanner.toggleScanner(enabled = endpoint != PROD)
+```
+
+AndroidX Startup must remain enabled. Calling `toggleScanner(true)` before an activity resumes
+installs on resume; calling it afterward installs immediately on every resumed activity. Calling
+`toggleScanner(false)` removes non-debuggable overlays, while debuggable builds remain enabled.
+
+If AndroidX Startup is removed for manual installation, `toggleScanner(true)` only grants
+permission; the app must still call `install()` for each activity.
 
 ### 2. Trigger a scan
 
@@ -112,8 +135,8 @@ fun App() {
 ```
 
 All built-in rules are enabled by default, and the overlay is removed when its activity is destroyed.
-Keep direct scanner imports in `src/debug`; dependencies added with `debugImplementation` are
-intentionally unavailable to release source sets.
+For debug-only integration, keep direct scanner imports in `src/debug`; dependencies added with
+`debugImplementation` are intentionally unavailable to release source sets.
 
 ## Configuration
 

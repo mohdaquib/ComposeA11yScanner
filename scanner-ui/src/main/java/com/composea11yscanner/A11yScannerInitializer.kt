@@ -6,9 +6,13 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import androidx.startup.Initializer
 import com.composea11yscanner.core.model.ScannerConfig
 import com.composea11yscanner.rules.ScannerRules
+
+internal fun canResume(destroyed: Boolean, state: Lifecycle.State): Boolean =
+    !destroyed && state.isAtLeast(Lifecycle.State.RESUMED)
 
 /**
  * AndroidX App Startup initializer for installing [ComposeA11yScanner] in allowed builds.
@@ -38,7 +42,11 @@ class A11yScannerInitializer : Initializer<Unit> {
                 override fun onActivityResumed(activity: Activity) {
                     val componentActivity = activity as? ComponentActivity ?: return
                     componentActivity.window.decorView.post {
-                        if (componentActivity.isDestroyed) return@post
+                        val resumed = canResume(
+                            componentActivity.isDestroyed,
+                            componentActivity.lifecycle.currentState,
+                        )
+                        if (!resumed) return@post
                         ComposeA11yScanner.resume(componentActivity, config)
                     }
                 }
@@ -50,7 +58,9 @@ class A11yScannerInitializer : Initializer<Unit> {
                 }
                 override fun onActivityStopped(activity: Activity) = Unit
                 override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
-                override fun onActivityDestroyed(activity: Activity) = Unit
+                override fun onActivityDestroyed(activity: Activity) {
+                    (activity as? ComponentActivity)?.let(ComposeA11yScanner::pause)
+                }
             },
         )
     }

@@ -2,13 +2,14 @@ package com.composea11yscanner
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.graphics.Rect as AndroidRect
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.activity.ComponentActivity
+import androidx.annotation.MainThread
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -53,6 +54,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import android.graphics.Rect as AndroidRect
 
 /**
  * Top-level public API for the Compose Accessibility Scanner.
@@ -62,10 +64,10 @@ import kotlinx.coroutines.flow.flatMapLatest
  * removed automatically when the activity is destroyed, so explicit [uninstall] calls are
  * only needed if the scanner should stop before destroy.
  *
- * **All three methods throw [IllegalStateException] in non-debug builds** (i.e., when
- * [ApplicationInfo.FLAG_DEBUGGABLE] is absent from the running APK), unless [toggleScanner] is
- * explicitly enabled. This is the correct runtime check for library code; `BuildConfig.DEBUG`
- * in a library module does not reflect the consuming app's build type.
+ * Scanner calls throw [IllegalStateException] in non-debuggable builds unless [toggleScanner] is
+ * explicitly enabled on the main thread. Debuggable builds remain enabled regardless of the toggle.
+ * Checking [ApplicationInfo.FLAG_DEBUGGABLE] is correct for library code because a library module's
+ * `BuildConfig.DEBUG` does not reflect the consuming app's build type.
  *
  * Usage:
  * ```kotlin
@@ -94,23 +96,23 @@ object ComposeA11yScanner {
     /** Set during [install] so that [scan] can perform the debug-build check without a [Context]. */
     @Volatile private var cachedAppContext: Context? = null
 
-    @Volatile private var prodAllowed = false
+    private val scannerLifecycle = ScannerLifecycle<ComponentActivity, ScannerConfig>(
+        checkMainThread = ::checkMainThread,
+        isDebuggable = { it.isDebuggable() },
+        install = ::install,
+        removeProd = {
+            entries.keys.filterNot { it.isDebuggable() }.forEach(::remove)
+        },
+    )
 
-    /** Allows explicit scanner use in non-debuggable builds. */
-    fun toggleScanner(enabled: Boolean) {
-        if (prodAllowed == enabled) return
-        prodAllowed = enabled
-        if (enabled) {
-            resumedActivity?.let { activity ->
-                resumedConfig?.let { install(activity, it) }
-            }
-        } else if (cachedAppContext?.isDebuggable() == false) {
-            entries.keys.toList().forEach(::remove)
-        }
-    }
-
-    private var resumedActivity: ComponentActivity? = null
-    private var resumedConfig: ScannerConfig? = null
+    /**
+     * Enables or disables scanner installation in non-debuggable builds.
+     *
+     * Enabling installs the scanner on all resumed activities. Disabling removes non-debuggable
+     * overlays; debuggable builds remain enabled. This method must be called on the main thread.
+     */
+    @MainThread
+    fun toggleScanner(enabled: Boolean) = scannerLifecycle.toggle(enabled)
 
     /**
      * Controller for the most recently installed activity. Keeping this as state allows callers
@@ -130,7 +132,7 @@ object ComposeA11yScanner {
      *
      * @param activity Activity that should receive the scanner overlay.
      * @param config Scanner configuration applied to this install.
-     * @throws IllegalStateException in non-debug builds.
+     * @throws IllegalStateException in non-debuggable builds when the scanner is not enabled.
      */
     fun install(
         activity: ComponentActivity,
@@ -197,7 +199,7 @@ object ComposeA11yScanner {
      * Must be called on the main thread.
      *
      * @param activity Activity whose scanner overlay should be removed.
-     * @throws IllegalStateException in non-debug builds.
+     * @throws IllegalStateException in non-debuggable builds when the scanner is not enabled.
      */
     fun uninstall(activity: ComponentActivity) {
         requireDebugBuild(activity)
@@ -216,8 +218,8 @@ object ComposeA11yScanner {
      * immediately receive the current state. The returned flow can be collected before automatic
      * installation; it begins forwarding state when an activity scanner becomes available.
      *
-     * @throws IllegalStateException in non-debug builds, or when automatic initialization is
-     * disabled and this is called before [install].
+     * @throws IllegalStateException in a non-debuggable build when the scanner is not enabled, or
+     * when automatic initialization is disabled and this is called before [install].
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun scan(): Flow<ScannerState> {
@@ -233,8 +235,8 @@ object ComposeA11yScanner {
      * This is useful for consumer-side triggers such as long press, shake, or debug menu actions.
      * Returns an empty flow when no scanner is installed.
      *
-     * @throws IllegalStateException in non-debug builds, or when automatic initialization is
-     * disabled and this is called before [install].
+     * @throws IllegalStateException in a non-debuggable build when the scanner is not enabled, or
+     * when automatic initialization is disabled and this is called before [install].
      */
     fun triggerScan(): Flow<ScannerState> {
         requireDebugBuild()
@@ -250,10 +252,10 @@ object ComposeA11yScanner {
     // ── Debug guard ─────────────────────────────────────────────────────────────
 
     private fun requireDebugBuild(context: Context) {
-        if (!prodAllowed && !context.isDebuggable()) {
+        if (!scannerLifecycle.isAllowed(context.isDebuggable())) {
             throw IllegalStateException(
-                "ComposeA11yScanner must only be used in debug builds. " +
-                    "Remove all ComposeA11yScanner calls before shipping to production.",
+                "ComposeA11yScanner requires a debuggable build or " +
+                    "toggleScanner(true) on the main thread.",
             )
         }
     }
@@ -263,16 +265,15 @@ object ComposeA11yScanner {
         cachedAppContext = context.applicationContext
     }
 
-    internal fun resume(activity: ComponentActivity, config: ScannerConfig) {
-        resumedActivity = activity
-        resumedConfig = config
-        if (activity.isDebuggable() || prodAllowed) install(activity, config)
-    }
+    internal fun resume(activity: ComponentActivity, config: ScannerConfig) =
+        scannerLifecycle.resume(activity, config)
 
-    internal fun pause(activity: ComponentActivity) {
-        if (resumedActivity !== activity) return
-        resumedActivity = null
-        resumedConfig = null
+    internal fun pause(activity: ComponentActivity) = scannerLifecycle.pause(activity)
+
+    private fun checkMainThread() {
+        check(Looper.myLooper() == Looper.getMainLooper()) {
+            "ComposeA11yScanner.toggleScanner() must be called on the main thread."
+        }
     }
 
     private fun Context.isDebuggable(): Boolean =
@@ -282,8 +283,8 @@ object ComposeA11yScanner {
     private fun requireDebugBuild() {
         val ctx = cachedAppContext
             ?: throw IllegalStateException(
-                "ComposeA11yScanner.scan() called before install(). " +
-                    "ComposeA11yScanner may only be used in debug builds.",
+                "ComposeA11yScanner called before install(). Enable production use with " +
+                    "toggleScanner(true) on the main thread.",
             )
         requireDebugBuild(ctx)
     }
