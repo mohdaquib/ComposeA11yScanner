@@ -99,7 +99,7 @@ object ComposeA11yScanner {
     private val scannerLifecycle = ScannerLifecycle<ComponentActivity, ScannerConfig>(
         checkMainThread = ::checkMainThread,
         isDebuggable = { it.isDebuggable() },
-        install = ::install,
+        install = ::installAuto,
         removeProd = {
             entries.keys.filterNot { it.isDebuggable() }.forEach(::remove)
         },
@@ -138,7 +138,7 @@ object ComposeA11yScanner {
     fun install(
         activity: ComponentActivity,
         config: ScannerConfig = ScannerConfig(enabledRules = ScannerRules.allRuleIds().toSet()),
-    ) = installInternal(activity, config, destinationKeyProvider = null)
+    ) = installInternal(activity, config, destinationKeyProvider = null, automatic = false)
 
     /**
      * Installs the scanner with an explicit key for single-host Compose navigation.
@@ -148,15 +148,23 @@ object ComposeA11yScanner {
         activity: ComponentActivity,
         destinationKeyProvider: () -> String?,
         config: ScannerConfig = ScannerConfig(enabledRules = ScannerRules.allRuleIds().toSet()),
-    ) = installInternal(activity, config, destinationKeyProvider)
+    ) = installInternal(activity, config, destinationKeyProvider, automatic = false)
+
+    private fun installAuto(activity: ComponentActivity, config: ScannerConfig) =
+        installInternal(activity, config, destinationKeyProvider = null, automatic = true)
 
     private fun installInternal(
         activity: ComponentActivity,
         config: ScannerConfig,
         destinationKeyProvider: (() -> String?)?,
+        automatic: Boolean,
     ) {
         requireDebugBuild(activity)
-        if (entries.containsKey(activity)) return
+        entries[activity]?.let { entry ->
+            if (automatic) entry.automatic = true
+            activeController.value = entry.controller
+            return
+        }
 
         cachedAppContext = activity.applicationContext
 
@@ -181,6 +189,7 @@ object ComposeA11yScanner {
         val entry = InstallEntry(
             controller = controller,
             overlayView = overlayView,
+            automatic = automatic,
             autoScan = config.autoScan,
             screenSnapshotProvider = {
                 activity.currentScreenSnapshot(destinationKeyProvider)
@@ -206,7 +215,7 @@ object ComposeA11yScanner {
      */
     fun uninstall(activity: ComponentActivity) {
         requireDebugBuild(activity)
-        scannerLifecycle.pause(activity)
+        scannerLifecycle.uninstall(activity)
         remove(activity)
     }
 
@@ -219,9 +228,11 @@ object ComposeA11yScanner {
         activeController.value = activeEntry()?.controller
     }
 
-    private fun activeEntry(): InstallEntry? = scannerLifecycle.resumedActivities()
-        .asReversed()
-        .firstNotNullOfOrNull(entries::get)
+    private fun activeEntry(): InstallEntry? = selectEntry(
+        resumedActivities = scannerLifecycle.resumedActivities(),
+        entries = entries,
+        isAutomatic = InstallEntry::automatic,
+    )
 
     /**
      * Returns a [Flow] of [ScannerState] for the most recently resumed installed activity.
@@ -277,6 +288,8 @@ object ComposeA11yScanner {
         cachedAppContext = context.applicationContext
     }
 
+    internal fun prepare(activity: ComponentActivity) = scannerLifecycle.prepare(activity)
+
     internal fun resume(activity: ComponentActivity, config: ScannerConfig) {
         scannerLifecycle.resume(activity, config)
         routeActive()
@@ -284,6 +297,11 @@ object ComposeA11yScanner {
 
     internal fun pause(activity: ComponentActivity) {
         scannerLifecycle.pause(activity)
+        routeActive()
+    }
+
+    internal fun destroy(activity: ComponentActivity) {
+        scannerLifecycle.destroy(activity)
         routeActive()
     }
 
@@ -510,6 +528,7 @@ object ComposeA11yScanner {
     private class InstallEntry(
         val controller: A11yScannerController,
         val overlayView: ComposeView,
+        var automatic: Boolean,
         private val autoScan: Boolean,
         private val screenSnapshotProvider: () -> ScreenSnapshot?,
         private val removeObserver: () -> Unit,

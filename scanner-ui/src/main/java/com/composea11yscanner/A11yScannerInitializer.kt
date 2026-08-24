@@ -41,6 +41,7 @@ class A11yScannerInitializer : Initializer<Unit> {
             object : Application.ActivityLifecycleCallbacks {
                 override fun onActivityResumed(activity: Activity) {
                     val componentActivity = activity as? ComponentActivity ?: return
+                    ComposeA11yScanner.prepare(componentActivity)
                     componentActivity.window.decorView.post {
                         val resumed = canResume(
                             componentActivity.isDestroyed,
@@ -59,7 +60,7 @@ class A11yScannerInitializer : Initializer<Unit> {
                 override fun onActivityStopped(activity: Activity) = Unit
                 override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
                 override fun onActivityDestroyed(activity: Activity) {
-                    (activity as? ComponentActivity)?.let(ComposeA11yScanner::pause)
+                    (activity as? ComponentActivity)?.let(ComposeA11yScanner::destroy)
                 }
             },
         )

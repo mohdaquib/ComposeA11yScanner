@@ -117,6 +117,13 @@ import com.composea11yscanner.ComposeA11yScanner
 ComposeA11yScanner.triggerScan()
 ```
 
+Trusted builds must invoke direct triggers only while the same `scannerEnabled` value passed to
+`toggleScanner()` is true:
+
+```kotlin
+if (scannerEnabled) ComposeA11yScanner.triggerScan()
+```
+
 `ComposeA11yScanner.scan()` is safe to collect before the first activity reaches `onResume` when
 automatic installation is enabled. The flow waits for an installed activity scanner, then forwards
 its state.
@@ -131,10 +138,13 @@ import com.composea11yscanner.triggers.scanOnShake
 
 @Composable
 fun App() {
-    scanOnShake()
+    scanOnShake(enabled = scannerEnabled)
     AppContent()
 }
 ```
+
+For trusted builds, derive `scannerEnabled` from the same condition passed to `toggleScanner()` so
+triggers stop before production permission is disabled.
 
 All built-in rules are enabled by default, and the overlay is removed when its activity is destroyed.
 For debug-only integration, keep direct scanner imports in `src/debug`; dependencies added with

@@ -67,21 +67,68 @@ class ScannerLifecycleTest {
     }
 
     @Test
-    fun `removed activity is ignored until next resume`() {
+    fun `queued resume cannot reverse uninstall`() {
         val installed = mutableListOf<String>()
         val lifecycle = lifecycle(
             debugActivities = setOf("debug"),
             installed = installed,
         )
-        lifecycle.resume("debug", Unit)
-        installed.clear()
-        lifecycle.pause("debug")
+        lifecycle.prepare("debug")
+        lifecycle.uninstall("debug")
 
-        lifecycle.toggle(true)
+        lifecycle.resume("debug", Unit)
 
         assertTrue(installed.isEmpty())
+        lifecycle.pause("debug")
         lifecycle.resume("debug", Unit)
         assertEquals(listOf("debug"), installed)
+    }
+
+    @Test
+    fun `manual-only uninstall does not suppress later resume`() {
+        val installed = mutableListOf<String>()
+        val lifecycle = lifecycle(installed = installed)
+        lifecycle.uninstall("manual")
+        lifecycle.toggle(true)
+
+        lifecycle.resume("manual", Unit)
+
+        assertEquals(listOf("manual"), installed)
+    }
+
+    @Test
+    fun `manual routing survives removal of latest entry`() {
+        val entries = linkedMapOf(
+            "first" to Entry("first", automatic = false),
+            "second" to Entry("second", automatic = false),
+        )
+
+        assertEquals("second", selectEntry(emptyList(), entries, Entry::automatic)?.id)
+        entries.remove("second")
+        assertEquals("first", selectEntry(emptyList(), entries, Entry::automatic)?.id)
+    }
+
+    @Test
+    fun `resumed automatic entry takes priority over manual fallback`() {
+        val entries = linkedMapOf(
+            "manual" to Entry("manual", automatic = false),
+            "first" to Entry("first", automatic = true),
+            "second" to Entry("second", automatic = true),
+        )
+
+        val active = selectEntry(
+            resumedActivities = listOf("first", "second"),
+            entries = entries,
+            isAutomatic = Entry::automatic,
+        )
+        val fallback = selectEntry(
+            resumedActivities = emptyList(),
+            entries = entries,
+            isAutomatic = Entry::automatic,
+        )
+
+        assertEquals("second", active?.id)
+        assertEquals("manual", fallback?.id)
     }
 
     @Test
@@ -143,6 +190,8 @@ class ScannerLifecycleTest {
         assertFalse(canResume(destroyed = true, state = RESUMED))
         assertFalse(canResume(destroyed = true, state = DESTROYED))
     }
+
+    private data class Entry(val id: String, val automatic: Boolean)
 
     private fun lifecycle(
         checkMainThread: () -> Unit = {},
