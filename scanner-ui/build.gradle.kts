@@ -29,6 +29,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     buildFeatures { compose = true }
+    testOptions.unitTests.isIncludeAndroidResources = true
 }
 
 kotlin {
@@ -59,6 +60,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

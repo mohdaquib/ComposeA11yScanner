@@ -93,13 +93,15 @@ dependencies {
 }
 ```
 
-Enable or disable it from the main thread whenever the environment changes:
+Enable or disable it from the main thread whenever the consuming app's trusted-build policy changes:
 
 ```kotlin
-ComposeA11yScanner.toggleScanner(enabled = endpoint == DEV || endpoint == TEST)
+ComposeA11yScanner.toggleScanner(enabled = scannerAllowed)
 ```
 
-Use a positive allowlist and prefer an internal flavor/source set when available. AndroidX Startup
+`scannerAllowed` is owned by the consuming app and should default to `false`. Derive it from a
+positive allowlist and prefer an internal flavor/source set when available. The library does not
+know about the consuming app's endpoints or build policy. AndroidX Startup
 must remain enabled. Calling `toggleScanner(true)` before an activity resumes
 installs on resume; calling it afterward installs immediately on every resumed activity. Calling
 `toggleScanner(false)` removes non-debuggable overlays, while debuggable builds remain enabled.

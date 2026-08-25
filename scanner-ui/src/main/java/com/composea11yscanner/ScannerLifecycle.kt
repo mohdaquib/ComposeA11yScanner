@@ -57,6 +57,13 @@ internal class ScannerLifecycle<Activity, Config>(
     fun resumedActivities(): List<Activity> = resumed.keys.toList()
 
     fun isAllowed(debuggable: Boolean) = debuggable || prodAllowed
+
+    fun reset() {
+        resumed.clear()
+        pending.clear()
+        suppressed.clear()
+        prodAllowed = false
+    }
 }
 
 internal fun <Activity, Entry> selectEntry(

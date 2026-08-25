@@ -311,6 +311,26 @@ object ComposeA11yScanner {
         routeActive()
     }
 
+    internal fun resetForTests() {
+        entries.keys.toList().forEach(::remove)
+        scannerLifecycle.reset()
+        cachedAppContext = null
+        activeController.value = null
+    }
+
+    internal fun installedActivitiesForTests(): List<ComponentActivity> = entries.keys.toList()
+
+    internal fun activeActivityForTests(): ComponentActivity? {
+        val active = activeEntry() ?: return null
+        return entries.entries.lastOrNull { it.value === active }?.key
+    }
+
+    internal fun controllerForTests(activity: ComponentActivity): A11yScannerController? =
+        entries[activity]?.controller
+
+    internal fun overlayForTests(activity: ComponentActivity): ComposeView? =
+        entries[activity]?.overlayView
+
     private fun checkMainThread() {
         check(Looper.myLooper() == Looper.getMainLooper()) {
             "ComposeA11yScanner.toggleScanner() must be called on the main thread."

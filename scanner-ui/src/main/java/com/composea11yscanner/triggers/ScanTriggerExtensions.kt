@@ -15,6 +15,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import com.composea11yscanner.ComposeA11yScanner
 
+private val defaultScanRequest: () -> Unit = { ComposeA11yScanner.triggerIfEnabled() }
+
 /**
  * Starts a ComposeA11yScanner scan when this element is long-pressed.
  *
@@ -27,7 +29,7 @@ import com.composea11yscanner.ComposeA11yScanner
  */
 fun Modifier.scanOnLongPress(
     enabled: Boolean = true,
-    onScanRequested: () -> Unit = { ComposeA11yScanner.triggerIfEnabled() },
+    onScanRequested: () -> Unit = defaultScanRequest,
 ): Modifier {
     if (!enabled) return this
     return pointerInput(onScanRequested) {
@@ -51,7 +53,7 @@ fun scanOnShake(
     enabled: Boolean = true,
     shakeThresholdG: Float = 2.7f,
     minTriggerIntervalMillis: Long = 1_500L,
-    onScanRequested: () -> Unit = { ComposeA11yScanner.triggerIfEnabled() },
+    onScanRequested: () -> Unit = defaultScanRequest,
 ) {
     val context = LocalContext.current
     val currentOnScanRequested = rememberUpdatedState(onScanRequested)
