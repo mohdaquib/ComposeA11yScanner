@@ -15,7 +15,10 @@ internal fun canResume(destroyed: Boolean, state: Lifecycle.State): Boolean =
     !destroyed && state.isAtLeast(Lifecycle.State.RESUMED)
 
 /**
- * AndroidX App Startup initializer for installing [ComposeA11yScanner] in allowed builds.
+ * AndroidX App Startup initializer for installing [ComposeA11yScanner] in allowed builds. It is
+ * declared by the scanner manifest, runs before `Application.onCreate`, and registers activity
+ * lifecycle callbacks. Remove its manifest entry for a hard opt-out with no scanner startup or
+ * activity-tracking work.
  *
  * Configure the scanner from the app manifest with:
  * - `a11y_scanner_min_contrast`

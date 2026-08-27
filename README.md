@@ -23,7 +23,7 @@ default and can opt in explicitly for trusted internal use.
   estimated from a captured Compose host.
 - **Actionable guidance** - every finding includes its severity, WCAG reference, and a suggested fix.
 - **Minimal setup** - AndroidX Startup handles activity tracking and installation.
-- **Default-deny integration** - debug builds work automatically; trusted builds must opt in.
+- **Default-deny integration** - debug builds work automatically unless explicitly disabled; trusted builds must opt in.
 - **Extensible rules** - use the bundled rules or add checks for your own accessibility standards.
 
 ## What's new in 2.1.0
@@ -76,11 +76,26 @@ dependencies {
 }
 ```
 
-That is all the integration required. AndroidX Startup attaches the overlay and runs an initial
-scan for every `ComponentActivity` in a debuggable app.
+That is all the integration required. The merged scanner manifest declares an AndroidX Startup
+initializer that runs before `Application.onCreate`, registers activity lifecycle callbacks, and
+attaches the overlay for every resumed `ComponentActivity` in a debuggable app.
 
 > [!IMPORTANT]
 > `debugImplementation` remains the recommended setup and keeps scanner code out of release builds.
+
+### Automatic startup and scanner availability
+
+Before the first `toggleScanner()` call, debuggable builds are enabled automatically and
+non-debuggable builds are denied. `toggleScanner(true)` enables every build; `toggleScanner(false)`
+removes every scanner overlay and blocks automatic installation, manual installation, and public
+scan APIs in every build until enabled again.
+
+Apps whose policy defaults to disabled must call `toggleScanner(false)` synchronously from
+`Application.onCreate`, before the first activity resumes. Do not wait for asynchronous endpoint,
+account, or remote-config resolution: a debuggable activity may otherwise install and auto-scan
+first. Runtime disable intentionally keeps the Startup callbacks registered and tracks resumed
+activities so `toggleScanner(true)` can install immediately. Use the [hard opt-out](#hard-opt-out-disable-automatic-initialization)
+when a variant must perform no scanner startup or activity-tracking work.
 
 ### Trusted non-debuggable builds
 
@@ -93,7 +108,7 @@ dependencies {
 }
 ```
 
-Enable or disable it from the main thread whenever the consuming app's trusted-build policy changes:
+Override scanner availability from the main thread whenever the consuming app's policy changes:
 
 ```kotlin
 ComposeA11yScanner.toggleScanner(enabled = scannerAllowed)
@@ -101,13 +116,9 @@ ComposeA11yScanner.toggleScanner(enabled = scannerAllowed)
 
 `scannerAllowed` is owned by the consuming app and should default to `false`. Derive it from a
 positive allowlist and prefer an internal flavor/source set when available. The library does not
-know about the consuming app's endpoints or build policy. AndroidX Startup
-must remain enabled. Calling `toggleScanner(true)` before an activity resumes
-installs on resume; calling it afterward installs immediately on every resumed activity. Calling
-`toggleScanner(false)` removes non-debuggable overlays, while debuggable builds remain enabled.
-
-If AndroidX Startup is removed for manual installation, `toggleScanner(true)` only grants
-permission; the app must still call `install()` for each activity.
+know about the consuming app's endpoints or build policy. Calling `toggleScanner(true)` before an
+activity resumes installs on resume; calling it afterward installs immediately on every tracked
+resumed activity.
 
 ### 2. Trigger a scan
 
@@ -155,22 +166,10 @@ For debug-only integration, keep direct scanner imports in `src/debug`; dependen
 
 ## Configuration
 
-Optional manifest metadata controls the auto-installed scanner:
+### Hard opt-out: disable automatic initialization
 
-```xml
-<application>
-    <meta-data
-        android:name="a11y_scanner_min_contrast"
-        android:value="4.5" />
-    <meta-data
-        android:name="a11y_scanner_auto_scan"
-        android:value="false" />
-</application>
-```
-
-### Manual installation
-
-Use manual installation only when you need a programmatic `ScannerConfig`. First disable the automatic initializer in the app manifest:
+For a variant that must perform no scanner startup, metadata reads, lifecycle callback registration,
+or activity tracking, remove the scanner initializer in that variant's manifest:
 
 ```xml
 <manifest xmlns:tools="http://schemas.android.com/tools">
@@ -187,7 +186,29 @@ Use manual installation only when you need a programmatic `ScannerConfig`. First
 </manifest>
 ```
 
-Then install after `setContent`:
+This prevents AndroidX Startup from discovering `A11yScannerInitializer`. With the initializer
+removed, `toggleScanner(true)` only grants permission; the app must call `install()` manually for
+each activity.
+
+### Automatic scanner configuration
+
+Optional manifest metadata controls the auto-installed scanner:
+
+```xml
+<application>
+    <meta-data
+        android:name="a11y_scanner_min_contrast"
+        android:value="4.5" />
+    <meta-data
+        android:name="a11y_scanner_auto_scan"
+        android:value="false" />
+</application>
+```
+
+### Manual installation
+
+Use manual installation only when you need a programmatic `ScannerConfig`. Apply the hard opt-out
+above, then install after `setContent`:
 
 ```kotlin
 setContent { App() }

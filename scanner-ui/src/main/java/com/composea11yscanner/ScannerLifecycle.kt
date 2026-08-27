@@ -10,7 +10,7 @@ internal class ScannerLifecycle<Activity, Config>(
     private val pending = mutableSetOf<Activity>()
     private val suppressed = mutableSetOf<Activity>()
 
-    @Volatile private var prodAllowed = false
+    @Volatile private var prodAllowed: Boolean? = null
 
     fun toggle(enabled: Boolean) {
         checkMainThread()
@@ -30,7 +30,7 @@ internal class ScannerLifecycle<Activity, Config>(
         if (activity in suppressed) return
         resumed.remove(activity)
         resumed[activity] = config
-        if (isDebuggable(activity) || prodAllowed) install(activity, config)
+        if (prodAllowed ?: isDebuggable(activity)) install(activity, config)
     }
 
     fun pause(activity: Activity) {
@@ -56,13 +56,13 @@ internal class ScannerLifecycle<Activity, Config>(
 
     fun resumedActivities(): List<Activity> = resumed.keys.toList()
 
-    fun isAllowed(debuggable: Boolean) = debuggable || prodAllowed
+    fun isAllowed(debuggable: Boolean) = prodAllowed ?: debuggable
 
     fun reset() {
         resumed.clear()
         pending.clear()
         suppressed.clear()
-        prodAllowed = false
+        prodAllowed = null
     }
 }
 

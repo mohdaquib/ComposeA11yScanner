@@ -64,8 +64,9 @@ import android.graphics.Rect as AndroidRect
  * removed automatically when the activity is destroyed, so explicit [uninstall] calls are
  * only needed if the scanner should stop before destroy.
  *
- * Scanner calls throw [IllegalStateException] in non-debuggable builds unless [toggleScanner] is
- * explicitly enabled on the main thread. Debuggable builds remain enabled regardless of the toggle.
+ * Scanner calls are allowed by default in debuggable builds and denied by default in
+ * non-debuggable builds. [toggleScanner] explicitly overrides either default: `false` disables the
+ * scanner in every build, while `true` enables it in every build.
  * Checking [ApplicationInfo.FLAG_DEBUGGABLE] is correct for library code because a library module's
  * `BuildConfig.DEBUG` does not reflect the consuming app's build type.
  *
@@ -93,7 +94,7 @@ object ComposeA11yScanner {
      */
     private val entries = LinkedHashMap<ComponentActivity, InstallEntry>()
 
-    /** Set during [install] so that [scan] can perform the debug-build check without a [Context]. */
+    /** Set during [install] so that [scan] can perform the permission check without a [Context]. */
     @Volatile private var cachedAppContext: Context? = null
 
     private val scannerLifecycle = ScannerLifecycle<ComponentActivity, ScannerConfig>(
@@ -101,16 +102,20 @@ object ComposeA11yScanner {
         isDebuggable = { it.isDebuggable() },
         install = ::installAuto,
         removeProd = {
-            entries.keys.filterNot { it.isDebuggable() }.forEach(::remove)
+            entries.keys.toList().forEach(::remove)
         },
     )
 
     /**
-     * Enables or disables scanner installation in non-debuggable builds.
+     * Overrides the default scanner availability for every build.
      *
+     * Before the first call, debuggable builds are enabled and non-debuggable builds are denied.
      * Enabling installs the scanner on eligible resumed activities. Explicitly uninstalled
-     * activities stay suppressed until their next resume. Disabling removes non-debuggable
-     * overlays; debuggable builds remain enabled. This method must be called on the main thread.
+     * activities stay suppressed until their next resume. Disabling removes every scanner overlay
+     * and prevents reinstallation until enabled again. AndroidX Startup callbacks remain registered
+     * so resumed activities can be tracked for immediate re-enabling; remove the initializer from
+     * the app manifest when no scanner startup or lifecycle work is allowed. This method must be
+     * called on the main thread.
      */
     @MainThread
     fun toggleScanner(enabled: Boolean) = scannerLifecycle.toggle(enabled)
@@ -133,7 +138,7 @@ object ComposeA11yScanner {
      *
      * @param activity Activity that should receive the scanner overlay.
      * @param config Scanner configuration applied to this install.
-     * @throws IllegalStateException in non-debuggable builds when the scanner is not enabled.
+     * @throws IllegalStateException when the scanner is denied by the current build/toggle policy.
      */
     fun install(
         activity: ComponentActivity,
@@ -209,11 +214,12 @@ object ComposeA11yScanner {
      *
      * Must be called on the main thread.
      *
+     * This remains safe and idempotent after [toggleScanner] disables the scanner.
+     *
      * @param activity Activity whose scanner overlay should be removed.
-     * @throws IllegalStateException in non-debuggable builds when the scanner is not enabled.
      */
     fun uninstall(activity: ComponentActivity) {
-        requireDebugBuild(activity)
+        checkMainThread()
         scannerLifecycle.uninstall(activity)
         remove(activity)
     }
@@ -241,8 +247,8 @@ object ComposeA11yScanner {
      * immediately receive the current state. The returned flow can be collected before automatic
      * installation; it begins forwarding state when an activity scanner becomes available.
      *
-     * @throws IllegalStateException in a non-debuggable build when the scanner is not enabled, or
-     * when automatic initialization is disabled and this is called before [install].
+     * @throws IllegalStateException when the scanner is denied by the current build/toggle policy,
+     * or when automatic initialization is disabled and this is called before [install].
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun scan(): Flow<ScannerState> {
@@ -258,8 +264,8 @@ object ComposeA11yScanner {
      * This is useful for consumer-side triggers such as long press, shake, or debug menu actions.
      * Returns an empty flow when no scanner is installed.
      *
-     * @throws IllegalStateException in a non-debuggable build when the scanner is not enabled, or
-     * when automatic initialization is disabled and this is called before [install].
+     * @throws IllegalStateException when the scanner is denied by the current build/toggle policy,
+     * or when automatic initialization is disabled and this is called before [install].
      */
     fun triggerScan(): Flow<ScannerState> {
         requireDebugBuild()
@@ -283,8 +289,8 @@ object ComposeA11yScanner {
     private fun requireDebugBuild(context: Context) {
         if (!scannerLifecycle.isAllowed(context.isDebuggable())) {
             throw IllegalStateException(
-                "ComposeA11yScanner requires a debuggable build or " +
-                    "toggleScanner(true) on the main thread.",
+                "ComposeA11yScanner is disabled by the current build/toggle policy. " +
+                    "Call toggleScanner(true) on the main thread to enable it.",
             )
         }
     }

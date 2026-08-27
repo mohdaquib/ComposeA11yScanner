@@ -15,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -124,6 +125,41 @@ class ComposeA11yScannerIntegrationTest {
         assertTrue(ComposeA11yScanner.controllerForTests(manual)?.currentState is ScannerState.Scanning)
         ComposeA11yScanner.notifyScreenChanged()
         assertTrue(ComposeA11yScanner.controllerForTests(manual)?.currentState is ScannerState.Idle)
+    }
+
+    @Test
+    fun `explicit disable blocks and removes debug installations`() = runBlocking {
+        val activity = activity()
+
+        ComposeA11yScanner.toggleScanner(false)
+        ComposeA11yScanner.resume(activity, config)
+
+        assertFalse(activity in ComposeA11yScanner.installedActivitiesForTests())
+        assertThrows(IllegalStateException::class.java) {
+            ComposeA11yScanner.install(activity, config)
+        }
+        assertNull(ComposeA11yScanner.triggerIfEnabled().firstOrNull())
+
+        ComposeA11yScanner.toggleScanner(true)
+
+        assertTrue(activity in ComposeA11yScanner.installedActivitiesForTests())
+        val overlay = ComposeA11yScanner.overlayForTests(activity)
+        assertTrue(overlay?.parent != null)
+
+        ComposeA11yScanner.toggleScanner(false)
+
+        assertFalse(activity in ComposeA11yScanner.installedActivitiesForTests())
+        assertNull(overlay?.parent)
+        assertNull(ComposeA11yScanner.activeActivityForTests())
+        assertThrows(IllegalStateException::class.java) { ComposeA11yScanner.scan() }
+        assertThrows(IllegalStateException::class.java) { ComposeA11yScanner.triggerScan() }
+        assertThrows(IllegalStateException::class.java) { ComposeA11yScanner.notifyScreenChanged() }
+        assertNull(ComposeA11yScanner.triggerIfEnabled().firstOrNull())
+
+        ComposeA11yScanner.uninstall(activity)
+        ComposeA11yScanner.toggleScanner(true)
+
+        assertFalse(activity in ComposeA11yScanner.installedActivitiesForTests())
     }
 
     @Test

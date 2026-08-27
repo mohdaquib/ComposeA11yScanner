@@ -74,7 +74,27 @@ class ScannerLifecycleTest {
     }
 
     @Test
-    fun `disable removes only production installs and is idempotent`() {
+    fun `explicit disable blocks debug activities until reenabled`() {
+        val installed = mutableListOf<String>()
+        val lifecycle = lifecycle(
+            debugActivities = setOf("debug"),
+            installed = installed,
+        )
+
+        lifecycle.toggle(false)
+        lifecycle.resume("debug", Unit)
+
+        assertTrue(installed.isEmpty())
+        assertFalse(lifecycle.isAllowed(debuggable = true))
+
+        lifecycle.toggle(true)
+
+        assertEquals(listOf("debug"), installed)
+        assertTrue(lifecycle.isAllowed(debuggable = true))
+    }
+
+    @Test
+    fun `disable removes all installs and is idempotent`() {
         val installed = mutableListOf<String>()
         var removals = 0
         val lifecycle = lifecycle(
@@ -82,7 +102,7 @@ class ScannerLifecycleTest {
             installed = installed,
             removeProd = {
                 removals++
-                installed.removeAll { it != "debug" }
+                installed.clear()
             },
         )
         lifecycle.resume("debug", Unit)
@@ -93,7 +113,8 @@ class ScannerLifecycleTest {
         lifecycle.toggle(false)
 
         assertEquals(1, removals)
-        assertEquals(listOf("debug", "debug"), installed)
+        assertTrue(installed.isEmpty())
+        assertFalse(lifecycle.isAllowed(debuggable = true))
         assertFalse(lifecycle.isAllowed(debuggable = false))
     }
 
@@ -122,7 +143,7 @@ class ScannerLifecycleTest {
         debugActivities: Set<String> = emptySet(),
         installed: MutableList<String> = mutableListOf(),
         removeProd: () -> Unit = {
-            installed.removeAll { it !in debugActivities }
+            installed.clear()
         },
     ) = ScannerLifecycle<String, Unit>(
         checkMainThread = checkMainThread,
