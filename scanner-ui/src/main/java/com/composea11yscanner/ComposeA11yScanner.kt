@@ -2,13 +2,14 @@ package com.composea11yscanner
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.graphics.Rect as AndroidRect
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.activity.ComponentActivity
+import androidx.annotation.MainThread
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -53,6 +54,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import android.graphics.Rect as AndroidRect
 
 /**
  * Top-level public API for the Compose Accessibility Scanner.
@@ -62,10 +64,11 @@ import kotlinx.coroutines.flow.flatMapLatest
  * removed automatically when the activity is destroyed, so explicit [uninstall] calls are
  * only needed if the scanner should stop before destroy.
  *
- * **All three methods throw [IllegalStateException] in non-debug builds** (i.e., when
- * [ApplicationInfo.FLAG_DEBUGGABLE] is absent from the running APK). This is the correct
- * runtime check for library code; `BuildConfig.DEBUG` in a library module does not reflect
- * the consuming app's build type.
+ * Scanner calls are allowed by default in debuggable builds and denied by default in
+ * non-debuggable builds. [toggleScanner] explicitly overrides either default: `false` disables the
+ * scanner in every build, while `true` enables it in every build.
+ * Checking [ApplicationInfo.FLAG_DEBUGGABLE] is correct for library code because a library module's
+ * `BuildConfig.DEBUG` does not reflect the consuming app's build type.
  *
  * Usage:
  * ```kotlin
@@ -91,12 +94,35 @@ object ComposeA11yScanner {
      */
     private val entries = LinkedHashMap<ComponentActivity, InstallEntry>()
 
-    /** Set during [install] so that [scan] can perform the debug-build check without a [Context]. */
+    /** Set during [install] so that [scan] can perform the permission check without a [Context]. */
     @Volatile private var cachedAppContext: Context? = null
 
+    private val scannerLifecycle = ScannerLifecycle<ComponentActivity, ScannerConfig>(
+        checkMainThread = ::checkMainThread,
+        isDebuggable = { it.isDebuggable() },
+        install = ::installAuto,
+        removeProd = {
+            entries.keys.toList().forEach(::remove)
+        },
+    )
+
     /**
-     * Controller for the most recently installed activity. Keeping this as state allows callers
-     * to subscribe before the automatic activity-resume installation has completed.
+     * Overrides the default scanner availability for every build.
+     *
+     * Before the first call, debuggable builds are enabled and non-debuggable builds are denied.
+     * Enabling installs the scanner on eligible resumed activities. Explicitly uninstalled
+     * activities stay suppressed until their next resume. Disabling removes every scanner overlay
+     * and prevents reinstallation until enabled again. AndroidX Startup callbacks remain registered
+     * so resumed activities can be tracked for immediate re-enabling; remove the initializer from
+     * the app manifest when no scanner startup or lifecycle work is allowed. This method must be
+     * called on the main thread.
+     */
+    @MainThread
+    fun toggleScanner(enabled: Boolean) = scannerLifecycle.toggle(enabled)
+
+    /**
+     * Selected controller, preferring the latest resumed automatic activity and otherwise the
+     * latest surviving manual installation.
      */
     private val activeController = MutableStateFlow<A11yScannerController?>(null)
 
@@ -112,12 +138,12 @@ object ComposeA11yScanner {
      *
      * @param activity Activity that should receive the scanner overlay.
      * @param config Scanner configuration applied to this install.
-     * @throws IllegalStateException in non-debug builds.
+     * @throws IllegalStateException when the scanner is denied by the current build/toggle policy.
      */
     fun install(
         activity: ComponentActivity,
         config: ScannerConfig = ScannerConfig(enabledRules = ScannerRules.allRuleIds().toSet()),
-    ) = installInternal(activity, config, destinationKeyProvider = null)
+    ) = installInternal(activity, config, destinationKeyProvider = null, automatic = false)
 
     /**
      * Installs the scanner with an explicit key for single-host Compose navigation.
@@ -127,15 +153,22 @@ object ComposeA11yScanner {
         activity: ComponentActivity,
         destinationKeyProvider: () -> String?,
         config: ScannerConfig = ScannerConfig(enabledRules = ScannerRules.allRuleIds().toSet()),
-    ) = installInternal(activity, config, destinationKeyProvider)
+    ) = installInternal(activity, config, destinationKeyProvider, automatic = false)
+
+    private fun installAuto(activity: ComponentActivity, config: ScannerConfig) =
+        installInternal(activity, config, destinationKeyProvider = null, automatic = true)
 
     private fun installInternal(
         activity: ComponentActivity,
         config: ScannerConfig,
         destinationKeyProvider: (() -> String?)?,
+        automatic: Boolean,
     ) {
         requireDebugBuild(activity)
-        if (entries.containsKey(activity)) return
+        entries[activity]?.let { entry ->
+            if (automatic) entry.automatic = true
+            return
+        }
 
         cachedAppContext = activity.applicationContext
 
@@ -156,46 +189,66 @@ object ComposeA11yScanner {
         }
         activity.addContentView(overlayView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
+        val observer = AutoUninstallObserver(activity)
         val entry = InstallEntry(
             controller = controller,
             overlayView = overlayView,
+            automatic = automatic,
             autoScan = config.autoScan,
             screenSnapshotProvider = {
                 activity.currentScreenSnapshot(destinationKeyProvider)
             },
+            removeObserver = { activity.lifecycle.removeObserver(observer) },
         )
         entries[activity] = entry
         entry.attach()
         activeController.value = controller
-        activity.lifecycle.addObserver(AutoUninstallObserver(activity))
+        activity.lifecycle.addObserver(observer)
     }
 
     /**
      * Removes the scanner overlay from [activity] and cancels the internal coroutine scope.
      *
-     * This is called automatically when the activity is destroyed. Explicit calls are only
-     * needed to stop the scanner while the activity is still alive.
+     * This is called automatically when the activity is destroyed. Explicit calls stop the
+     * scanner while the activity remains alive and suppress reinstallation until its next resume.
      *
      * Must be called on the main thread.
      *
+     * This remains safe and idempotent after [toggleScanner] disables the scanner.
+     *
      * @param activity Activity whose scanner overlay should be removed.
-     * @throws IllegalStateException in non-debug builds.
      */
     fun uninstall(activity: ComponentActivity) {
-        requireDebugBuild(activity)
-        entries.remove(activity)?.detach()
-        activeController.value = entries.values.lastOrNull()?.controller
+        checkMainThread()
+        scannerLifecycle.uninstall(activity)
+        remove(activity)
     }
 
+    private fun remove(activity: ComponentActivity) {
+        entries.remove(activity)?.detach()
+        routeActive()
+    }
+
+    private fun routeActive() {
+        activeController.value = activeEntry()?.controller
+    }
+
+    private fun activeEntry(): InstallEntry? = selectEntry(
+        resumedActivities = scannerLifecycle.resumedActivities(),
+        entries = entries,
+        isAutomatic = InstallEntry::automatic,
+    )
+
     /**
-     * Returns a [Flow] of [ScannerState] for the most recently installed activity.
+     * Returns scanner state for the latest resumed automatic activity, or the latest surviving
+     * manual installation when automatic routing has no active entry.
      *
      * The backing [kotlinx.coroutines.flow.SharedFlow] has `replay = 1`, so late subscribers
      * immediately receive the current state. The returned flow can be collected before automatic
      * installation; it begins forwarding state when an activity scanner becomes available.
      *
-     * @throws IllegalStateException in non-debug builds, or when automatic initialization is
-     * disabled and this is called before [install].
+     * @throws IllegalStateException when the scanner is denied by the current build/toggle policy,
+     * or when automatic initialization is disabled and this is called before [install].
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun scan(): Flow<ScannerState> {
@@ -206,32 +259,38 @@ object ComposeA11yScanner {
     }
 
     /**
-     * Starts a scan for the most recently installed activity and returns the shared state flow.
+     * Starts a scan for the selected automatic or manual installation and returns its state flow.
      *
      * This is useful for consumer-side triggers such as long press, shake, or debug menu actions.
      * Returns an empty flow when no scanner is installed.
      *
-     * @throws IllegalStateException in non-debug builds, or when automatic initialization is
-     * disabled and this is called before [install].
+     * @throws IllegalStateException when the scanner is denied by the current build/toggle policy,
+     * or when automatic initialization is disabled and this is called before [install].
      */
     fun triggerScan(): Flow<ScannerState> {
         requireDebugBuild()
-        return entries.values.lastOrNull()?.controller?.startScan() ?: emptyFlow()
+        return activeController.value?.startScan() ?: emptyFlow()
+    }
+
+    internal fun triggerIfEnabled(): Flow<ScannerState> {
+        val context = cachedAppContext ?: return emptyFlow()
+        if (!scannerLifecycle.isAllowed(context.isDebuggable())) return emptyFlow()
+        return activeController.value?.startScan() ?: emptyFlow()
     }
 
     /** Invalidates the current result and schedules a scan for the latest destination. */
     fun notifyScreenChanged() {
         requireDebugBuild()
-        entries.values.lastOrNull()?.notifyScreenChanged()
+        activeEntry()?.notifyScreenChanged()
     }
 
     // ── Debug guard ─────────────────────────────────────────────────────────────
 
     private fun requireDebugBuild(context: Context) {
-        if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+        if (!scannerLifecycle.isAllowed(context.isDebuggable())) {
             throw IllegalStateException(
-                "ComposeA11yScanner must only be used in debug builds. " +
-                    "Remove all ComposeA11yScanner calls before shipping to production.",
+                "ComposeA11yScanner is disabled by the current build/toggle policy. " +
+                    "Call toggleScanner(true) on the main thread to enable it.",
             )
         }
     }
@@ -241,12 +300,58 @@ object ComposeA11yScanner {
         cachedAppContext = context.applicationContext
     }
 
+    internal fun prepare(activity: ComponentActivity) = scannerLifecycle.prepare(activity)
+
+    internal fun resume(activity: ComponentActivity, config: ScannerConfig) {
+        scannerLifecycle.resume(activity, config)
+        routeActive()
+    }
+
+    internal fun pause(activity: ComponentActivity) {
+        scannerLifecycle.pause(activity)
+        routeActive()
+    }
+
+    internal fun destroy(activity: ComponentActivity) {
+        scannerLifecycle.destroy(activity)
+        routeActive()
+    }
+
+    internal fun resetForTests() {
+        entries.keys.toList().forEach(::remove)
+        scannerLifecycle.reset()
+        cachedAppContext = null
+        activeController.value = null
+    }
+
+    internal fun installedActivitiesForTests(): List<ComponentActivity> = entries.keys.toList()
+
+    internal fun activeActivityForTests(): ComponentActivity? {
+        val active = activeEntry() ?: return null
+        return entries.entries.lastOrNull { it.value === active }?.key
+    }
+
+    internal fun controllerForTests(activity: ComponentActivity): A11yScannerController? =
+        entries[activity]?.controller
+
+    internal fun overlayForTests(activity: ComponentActivity): ComposeView? =
+        entries[activity]?.overlayView
+
+    private fun checkMainThread() {
+        check(Looper.myLooper() == Looper.getMainLooper()) {
+            "ComposeA11yScanner.toggleScanner() must be called on the main thread."
+        }
+    }
+
+    private fun Context.isDebuggable(): Boolean =
+        applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+
     // Overload for scan(), which has no Context parameter.
     private fun requireDebugBuild() {
         val ctx = cachedAppContext
             ?: throw IllegalStateException(
-                "ComposeA11yScanner.scan() called before install(). " +
-                    "ComposeA11yScanner may only be used in debug builds.",
+                "ComposeA11yScanner called before install(). Enable production use with " +
+                    "toggleScanner(true) on the main thread.",
             )
         requireDebugBuild(ctx)
     }
@@ -455,8 +560,10 @@ object ComposeA11yScanner {
     private class InstallEntry(
         val controller: A11yScannerController,
         val overlayView: ComposeView,
+        var automatic: Boolean,
         private val autoScan: Boolean,
         private val screenSnapshotProvider: () -> ScreenSnapshot?,
+        private val removeObserver: () -> Unit,
     ) : ViewTreeObserver.OnPreDrawListener {
         private var baselineFingerprint: ScreenFingerprint? = null
         private var completedScanId: String? = null
@@ -606,6 +713,7 @@ object ComposeA11yScanner {
         }
 
         fun detach() {
+            removeObserver()
             val observer = overlayView.rootView.viewTreeObserver
             if (observer.isAlive) observer.removeOnPreDrawListener(this)
             overlayView.removeCallbacks(initialScanRunnable)
@@ -666,8 +774,7 @@ object ComposeA11yScanner {
     ) : DefaultLifecycleObserver {
         override fun onDestroy(owner: LifecycleOwner) {
             // entries[activity] may already be null if uninstall() was called manually first.
-            entries.remove(activity)?.detach()
-            activeController.value = entries.values.lastOrNull()?.controller
+            remove(activity)
         }
     }
 }

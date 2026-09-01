@@ -15,11 +15,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import com.composea11yscanner.ComposeA11yScanner
 
+private val defaultScanRequest: () -> Unit = { ComposeA11yScanner.triggerIfEnabled() }
+
 /**
  * Starts a ComposeA11yScanner scan when this element is long-pressed.
  *
- * Kept as a consumer-side convenience extension in `:scanner-ui`; scanner core has no
- * dependency on gestures, sensors, Android framework callbacks, or Compose modifiers.
+ * The default callback quietly does nothing when the scanner is disabled or not installed.
+ * Scanner core has no dependency on gestures, sensors, framework callbacks, or Compose modifiers.
  *
  * @param enabled Whether long-press scanning is active.
  * @param onScanRequested Callback invoked after a long press.
@@ -27,7 +29,7 @@ import com.composea11yscanner.ComposeA11yScanner
  */
 fun Modifier.scanOnLongPress(
     enabled: Boolean = true,
-    onScanRequested: () -> Unit = { ComposeA11yScanner.triggerScan() },
+    onScanRequested: () -> Unit = defaultScanRequest,
 ): Modifier {
     if (!enabled) return this
     return pointerInput(onScanRequested) {
@@ -38,8 +40,8 @@ fun Modifier.scanOnLongPress(
 /**
  * Starts a ComposeA11yScanner scan when the device is shaken.
  *
- * Call from a composable screen that wants shake-triggered scans. If no accelerometer is
- * present, this quietly does nothing.
+ * Call from a composable screen that wants shake-triggered scans. If no accelerometer is present,
+ * or the scanner is disabled or not installed, the default callback quietly does nothing.
  *
  * @param enabled Whether shake scanning is active.
  * @param shakeThresholdG Required acceleration force in Gs.
@@ -51,7 +53,7 @@ fun scanOnShake(
     enabled: Boolean = true,
     shakeThresholdG: Float = 2.7f,
     minTriggerIntervalMillis: Long = 1_500L,
-    onScanRequested: () -> Unit = { ComposeA11yScanner.triggerScan() },
+    onScanRequested: () -> Unit = defaultScanRequest,
 ) {
     val context = LocalContext.current
     val currentOnScanRequested = rememberUpdatedState(onScanRequested)

@@ -10,9 +10,9 @@ problems that are not available from the Compose semantics tree alone.
 [![API Docs](https://github.com/mohdaquib/ComposeA11yScanner/actions/workflows/docs.yml/badge.svg)](https://mohdaquib.github.io/ComposeA11yScanner/)
 [![JitPack](https://jitpack.io/v/mohdaquib/ComposeA11yScanner.svg)](https://jitpack.io/#mohdaquib/ComposeA11yScanner)
 
-ComposeA11yScanner is a debug-only runtime scanner that finds accessibility issues in Jetpack
-Compose and highlights them directly on the rendered UI. Inspect the affected element, understand
-the problem, and see a suggested fix without leaving the app.
+ComposeA11yScanner is a debug-first runtime scanner that finds accessibility issues in Jetpack
+Compose and highlights them directly on the rendered UI. Non-debuggable builds are denied by
+default and can opt in explicitly for trusted internal use.
 
 ![Annotated GIF showing the Compose A11y Scanner issue summary, view highlights, and issue detail sheet in the sample app](docs/overlay-demo.gif)
 
@@ -22,8 +22,8 @@ the problem, and see a suggested fix without leaving the app.
 - **Semantics and rendered analysis** - rules inspect Compose semantics, while text contrast is
   estimated from a captured Compose host.
 - **Actionable guidance** - every finding includes its severity, WCAG reference, and a suggested fix.
-- **Minimal setup** - add one debug dependency; AndroidX Startup handles installation.
-- **Debug-only integration** - `debugImplementation` keeps the scanner out of release builds.
+- **Minimal setup** - AndroidX Startup handles activity tracking and installation.
+- **Default-deny integration** - debug builds work automatically unless explicitly disabled; trusted builds must opt in.
 - **Extensible rules** - use the bundled rules or add checks for your own accessibility standards.
 
 ## What's new in 2.1.0
@@ -76,21 +76,66 @@ dependencies {
 }
 ```
 
-That is all the integration required. AndroidX Startup attaches the overlay and runs an initial
-scan for every `ComponentActivity` in a debuggable app.
+That is all the integration required. The merged scanner manifest declares an AndroidX Startup
+initializer that runs before `Application.onCreate`, registers activity lifecycle callbacks, and
+attaches the overlay for every resumed `ComponentActivity` in a debuggable app.
 
 > [!IMPORTANT]
-> Keep the dependency and all direct scanner calls in debug source sets. Do not add the scanner
-> with `implementation` or reference it from release sources.
+> `debugImplementation` remains the recommended setup and keeps scanner code out of release builds.
+
+### Automatic startup and scanner availability
+
+Before the first `toggleScanner()` call, debuggable builds are enabled automatically and
+non-debuggable builds are denied. `toggleScanner(true)` enables every build; `toggleScanner(false)`
+removes every scanner overlay and blocks automatic installation, manual installation, and public
+scan APIs in every build until enabled again.
+
+Apps whose policy defaults to disabled must call `toggleScanner(false)` synchronously from
+`Application.onCreate`, before the first activity resumes. Do not wait for asynchronous endpoint,
+account, or remote-config resolution: a debuggable activity may otherwise install and auto-scan
+first. Runtime disable intentionally keeps the Startup callbacks registered and tracks resumed
+activities so `toggleScanner(true)` can install immediately. Use the [hard opt-out](#hard-opt-out-disable-automatic-initialization)
+when a variant must perform no scanner startup or activity-tracking work.
+
+### Trusted non-debuggable builds
+
+Use `implementation` only when a trusted internal build must run the scanner without being
+Android-debuggable:
+
+```kotlin
+dependencies {
+    implementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:<version>")
+}
+```
+
+Override scanner availability from the main thread whenever the consuming app's policy changes:
+
+```kotlin
+ComposeA11yScanner.toggleScanner(enabled = scannerAllowed)
+```
+
+`scannerAllowed` is owned by the consuming app and should default to `false`. Derive it from a
+positive allowlist and prefer an internal flavor/source set when available. The library does not
+know about the consuming app's endpoints or build policy. Calling `toggleScanner(true)` before an
+activity resumes installs on resume; calling it afterward installs immediately on every tracked
+resumed activity.
 
 ### 2. Trigger a scan
 
-Call the API from a debug source set, such as `src/debug/java/.../ScannerActions.kt`:
+For debug-only integration, call the API from `src/debug`. For trusted non-debuggable builds,
+place the trigger in `src/main` or the trusted variant's source set:
 
 ```kotlin
 import com.composea11yscanner.ComposeA11yScanner
 
 ComposeA11yScanner.triggerScan()
+```
+
+Trusted builds must invoke direct triggers only while the same `scannerEnabled` value passed to
+`toggleScanner()` is true:
+
+```kotlin
+if (scannerEnabled) ComposeA11yScanner.triggerScan()
 ```
 
 `ComposeA11yScanner.scan()` is safe to collect before the first activity reaches `onResume` when
@@ -99,40 +144,32 @@ its state.
 
 ### Optional: shake to scan
 
-Add `scanOnShake()` to a debug-only composable that remains active while the screen is visible:
+Add `scanOnShake()` to a composable compiled into the enabled variant: `src/debug` for debug-only
+integration, or `src/main`/the trusted source set for non-debuggable integration:
 
 ```kotlin
 import com.composea11yscanner.triggers.scanOnShake
 
 @Composable
 fun App() {
-    scanOnShake()
+    scanOnShake(enabled = scannerEnabled)
     AppContent()
 }
 ```
 
+For trusted builds, derive `scannerEnabled` from the same condition passed to `toggleScanner()` so
+triggers stop before production permission is disabled.
+
 All built-in rules are enabled by default, and the overlay is removed when its activity is destroyed.
-Keep direct scanner imports in `src/debug`; dependencies added with `debugImplementation` are
-intentionally unavailable to release source sets.
+For debug-only integration, keep direct scanner imports in `src/debug`; dependencies added with
+`debugImplementation` are intentionally unavailable to release source sets.
 
 ## Configuration
 
-Optional manifest metadata controls the auto-installed scanner:
+### Hard opt-out: disable automatic initialization
 
-```xml
-<application>
-    <meta-data
-        android:name="a11y_scanner_min_contrast"
-        android:value="4.5" />
-    <meta-data
-        android:name="a11y_scanner_auto_scan"
-        android:value="false" />
-</application>
-```
-
-### Manual installation
-
-Use manual installation only when you need a programmatic `ScannerConfig`. First disable the automatic initializer in the app manifest:
+For a variant that must perform no scanner startup, metadata reads, lifecycle callback registration,
+or activity tracking, remove the scanner initializer in that variant's manifest:
 
 ```xml
 <manifest xmlns:tools="http://schemas.android.com/tools">
@@ -149,7 +186,29 @@ Use manual installation only when you need a programmatic `ScannerConfig`. First
 </manifest>
 ```
 
-Then install after `setContent`:
+This prevents AndroidX Startup from discovering `A11yScannerInitializer`. With the initializer
+removed, `toggleScanner(true)` only grants permission; the app must call `install()` manually for
+each activity.
+
+### Automatic scanner configuration
+
+Optional manifest metadata controls the auto-installed scanner:
+
+```xml
+<application>
+    <meta-data
+        android:name="a11y_scanner_min_contrast"
+        android:value="4.5" />
+    <meta-data
+        android:name="a11y_scanner_auto_scan"
+        android:value="false" />
+</application>
+```
+
+### Manual installation
+
+Use manual installation only when you need a programmatic `ScannerConfig`. Apply the hard opt-out
+above, then install after `setContent`:
 
 ```kotlin
 setContent { App() }
@@ -164,7 +223,9 @@ ComposeA11yScanner.install(
 )
 ```
 
-Do not combine automatic and manual installation. Repeated installation on the same activity is ignored, but keeping one ownership path makes configuration predictable.
+Do not combine automatic and manual installation. Repeated installation on the same activity is
+ignored, but keeping one ownership path makes configuration predictable. With multiple manual
+activities, global APIs target the latest surviving installation and fall back after removal.
 
 For Navigation Compose, provide the current route when installing manually. An explicit key reliably
 invalidates stale results even when two destinations have the same semantics structure:
