@@ -181,6 +181,44 @@ class ComposeA11yScannerIntegrationTest {
         assertNull(ComposeA11yScanner.triggerIfEnabled().firstOrNull())
     }
 
+    @Test
+    fun `automatic resume reuses manual coordinator and stops routing after pause`() {
+        val activity = activity()
+        ComposeA11yScanner.resetForTests()
+        ComposeA11yScanner.install(activity, config)
+        val controller = ComposeA11yScanner.controllerForTests(activity)
+        val overlay = ComposeA11yScanner.overlayForTests(activity)
+
+        ComposeA11yScanner.resume(activity, config)
+
+        assertSame(controller, ComposeA11yScanner.controllerForTests(activity))
+        assertSame(overlay, ComposeA11yScanner.overlayForTests(activity))
+        assertSame(activity, ComposeA11yScanner.activeActivityForTests())
+
+        ComposeA11yScanner.pause(activity)
+
+        assertNull(ComposeA11yScanner.activeActivityForTests())
+        assertSame(controller, ComposeA11yScanner.controllerForTests(activity))
+    }
+
+    @Test
+    fun `new manual installation does not steal scans from resumed automatic activity`() {
+        val automatic = activity()
+        val manual = activity()
+        ComposeA11yScanner.resetForTests()
+        ComposeA11yScanner.resume(automatic, config)
+        ComposeA11yScanner.install(manual, config)
+
+        assertSame(automatic, ComposeA11yScanner.activeActivityForTests())
+        ComposeA11yScanner.triggerScan()
+        assertTrue(ComposeA11yScanner.controllerForTests(automatic)?.currentState is ScannerState.Scanning)
+        assertTrue(ComposeA11yScanner.controllerForTests(manual)?.currentState is ScannerState.Idle)
+
+        ComposeA11yScanner.pause(automatic)
+        ComposeA11yScanner.triggerScan()
+        assertTrue(ComposeA11yScanner.controllerForTests(manual)?.currentState is ScannerState.Scanning)
+    }
+
     private fun activity(): TestActivity =
         Robolectric.buildActivity(TestActivity::class.java).create().start().get()
 

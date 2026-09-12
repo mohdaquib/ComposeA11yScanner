@@ -11,8 +11,10 @@ import com.composea11yscanner.core.model.ScannerState
 internal class AutoScanCoordinator(
     val controller: A11yScannerController,
     val overlayView: ComposeView,
+    var automatic: Boolean,
     private val autoScan: Boolean,
     private val screenSnapshotProvider: () -> ScreenSnapshot?,
+    private val removeObserver: () -> Unit,
 ) : ViewTreeObserver.OnPreDrawListener {
     private var baselineFingerprint: ScreenFingerprint? = null
     private var completedScanId: String? = null
@@ -133,6 +135,7 @@ internal class AutoScanCoordinator(
     }
 
     fun detach() {
+        removeObserver()
         val observer = overlayView.rootView.viewTreeObserver
         if (observer.isAlive) observer.removeOnPreDrawListener(this)
         overlayView.removeCallbacks(initialScanRunnable)
