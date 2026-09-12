@@ -144,6 +144,32 @@ class FocusOrderRuleTest {
         assertEquals(1, rule.evaluateAll(nodes).size)
     }
 
+    @Test
+    fun `amount nested in a semantics wrapper is flagged after submit`() {
+        val form = createNode(nodeId = "form").copy(isTraversalGroup = true)
+        val wrapper = createNode(nodeId = "wrapper", parentNodeId = "form")
+        val submit = createNode(nodeId = "submit", parentNodeId = "form",
+            isFocusable = true, bounds = Rect(0, 400, 100, 456))
+        val amount = createNode(nodeId = "amount", parentNodeId = "wrapper",
+            isFocusable = true, bounds = Rect(0, 20, 100, 80))
+
+        assertEquals(listOf("amount"), rule.evaluateAll(listOf(form, submit, wrapper, amount)).map { it.affectedNode.nodeId })
+        assertTrue(rule.evaluateAll(listOf(form, wrapper, amount, submit)).isEmpty())
+    }
+
+    @Test
+    fun `separate traversal groups under the same root are not compared`() {
+        val root = createNode(nodeId = "root")
+        val content = createNode(nodeId = "content", parentNodeId = "root").copy(isTraversalGroup = true)
+        val appBar = createNode(nodeId = "app-bar", parentNodeId = "root").copy(isTraversalGroup = true)
+        val nodes = listOf(root, content,
+            createNode(parentNodeId = "content", isFocusable = true, bounds = Rect(0, 700, 100, 750)),
+            appBar,
+            createNode(parentNodeId = "app-bar", isFocusable = true, bounds = Rect(0, 20, 100, 70)))
+
+        assertTrue(rule.evaluateAll(nodes).isEmpty())
+    }
+
     // --- failing cases ---
 
     @Test

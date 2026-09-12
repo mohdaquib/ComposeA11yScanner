@@ -12,20 +12,26 @@ import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.Rect
 import com.composea11yscanner.ui.A11yNodeExtractor
 import com.composea11yscanner.ui.RenderedTextContrastAnalyzer
+import com.composea11yscanner.ui.captureRenderedView
 import kotlin.math.roundToInt
 
 internal const val BrokenSampleContentTag = "broken-sample-content"
 internal const val SampleViewportTag = "sample-viewport"
 
-internal fun ComponentActivity.extractBrokenSampleNodes(): List<A11yNode> =
+internal data class SampleScanNodes(
+    val visibleNodes: List<A11yNode> = emptyList(),
+    val focusOrderNodes: List<A11yNode> = emptyList(),
+)
+
+internal suspend fun ComponentActivity.extractBrokenSampleNodes(): SampleScanNodes =
     runCatching {
         val hostView = (window.decorView as? ViewGroup)
             ?.findFirstAbstractComposeView()
-            ?: return emptyList()
-        val semanticsOwner = hostView.findSemanticsOwner() ?: return emptyList()
+            ?: return SampleScanNodes()
+        val semanticsOwner = hostView.findSemanticsOwner() ?: return SampleScanNodes()
         val sampleRoot = semanticsOwner.unmergedRootSemanticsNode
             .findNodeByTestTag(BrokenSampleContentTag)
-            ?: return emptyList()
+            ?: return SampleScanNodes()
         val viewport = semanticsOwner.unmergedRootSemanticsNode
             .findNodeByTestTag(SampleViewportTag)
             ?.boundsInRoot
@@ -33,10 +39,27 @@ internal fun ComponentActivity.extractBrokenSampleNodes(): List<A11yNode> =
             ?: sampleRoot.boundsInRoot.let {
                 Rect(it.left.roundToInt(), it.top.roundToInt(), it.right.roundToInt(), it.bottom.roundToInt())
             }
-        RenderedTextContrastAnalyzer(hostView)
-            .analyze(A11yNodeExtractor().extract(sampleRoot))
-            .filterVisibleIn(viewport)
-    }.getOrDefault(emptyList())
+        val bitmap = captureRenderedView(window, hostView)
+        try {
+            val allNodes = A11yNodeExtractor().extract(sampleRoot)
+            val visibleNodes = RenderedTextContrastAnalyzer(hostView)
+                .analyze(allNodes, bitmap)
+                .filterVisibleIn(viewport)
+            val visibleIds = visibleNodes.map { it.nodeId }.toSet()
+            SampleScanNodes(
+                visibleNodes = visibleNodes,
+                // Preserve offscreen predecessors only for traversal analysis.
+                focusOrderNodes = allNodes.map { node ->
+                    node.copy(
+                        bounds = node.unclippedBounds ?: node.bounds,
+                        isVisibleToUser = node.nodeId in visibleIds,
+                    )
+                },
+            )
+        } finally {
+            bitmap.recycle()
+        }
+    }.getOrDefault(SampleScanNodes())
 
 private fun List<A11yNode>.filterVisibleIn(viewport: Rect): List<A11yNode> =
     filter { node ->

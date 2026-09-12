@@ -1,7 +1,9 @@
 package com.composea11yscanner.ui
 
+import android.util.Log
 import com.composea11yscanner.core.A11yScanEngine
 import com.composea11yscanner.core.model.A11yNode
+import com.composea11yscanner.core.model.ScanResult
 import com.composea11yscanner.core.model.ScannerConfig
 import com.composea11yscanner.core.model.ScannerState
 import com.composea11yscanner.core.rule.A11yRule
@@ -40,14 +42,23 @@ import java.util.concurrent.atomic.AtomicLong
  * controller.destroy()   // cancel the internal scope when the host is destroyed
  * ```
  *
- * @param nodeProvider Called once per [startScan] invocation to produce the node list.
- *   Must be safe to call on [Dispatchers.Default].
+ * @param nodeProvider Called once per [startScan] invocation on the main dispatcher to produce the
+ *   node list. It may suspend while rendered pixels are copied from the application window.
+ * @param ruleNodeOverridesProvider Optionally supplies specialized nodes for individual rules.
+ *   Rules without an override continue to evaluate [nodeProvider]'s accessibility tree.
  * @param screenDensity DisplayMetrics.density, forwarded to density-dependent rules.
  */
 class A11yScannerController(
-    private val nodeProvider: () -> List<A11yNode>,
+    private val nodeProvider: suspend () -> List<A11yNode>,
     private val screenDensity: Float,
+    private val ruleNodeOverridesProvider: suspend () -> Map<String, List<A11yNode>> = {
+        emptyMap()
+    },
 ) {
+    private companion object {
+        const val SCAN_RESULT_LOG_TAG = "ComposeA11yResults"
+    }
+
     @Volatile
     internal var currentState: ScannerState = ScannerState.Idle
         private set
@@ -146,9 +157,14 @@ class A11yScannerController(
                 _state.emit(state)
                 return@launch
             }
-            engine.scan(nodes).collect { state ->
+            val ruleNodeOverrides = withContext(Dispatchers.Main.immediate) {
+                ruleNodeOverridesProvider()
+            }
+            if (generation != scanGeneration.get()) return@launch
+            engine.scan(nodes, ruleNodeOverrides).collect { state ->
                 if (generation != scanGeneration.get()) return@collect
                 currentState = state
+                if (state is ScannerState.Complete) logScanResult(state.result)
                 _state.emit(state)
             }
         }
@@ -173,6 +189,27 @@ class A11yScannerController(
     private fun cancelCurrentJob() {
         scanJob?.cancel()
         scanJob = null
+    }
+
+    private fun logScanResult(result: ScanResult) {
+        Log.d(
+            SCAN_RESULT_LOG_TAG,
+            "Scan complete: id=${result.scanId}, nodes=${result.totalNodes}, " +
+                "score=${result.overallScore.toInt()}%, issues=${result.issues.size} " +
+                "(errors=${result.errorCount}, warnings=${result.warningCount}, " +
+                "info=${result.infoCount}), rulesPassed=${result.passedRules}, " +
+                "rulesFailed=${result.failedRules}",
+        )
+        result.issues.forEachIndexed { index, issue ->
+            Log.d(
+                SCAN_RESULT_LOG_TAG,
+                "Issue ${index + 1}/${result.issues.size}: severity=${issue.severity}, " +
+                    "rule=${issue.ruleId} (${issue.ruleName}), " +
+                    "node=${issue.affectedNode.composableName}#${issue.affectedNode.nodeId}, " +
+                    "bounds=${issue.affectedNode.bounds}, message=${issue.message}, " +
+                    "fix=${issue.howToFix}, wcag=${issue.wcagReference ?: "n/a"}",
+            )
+        }
     }
 
     /** Cancels the internal [CoroutineScope]. Call when the host (Activity/Fragment/ViewModel) is destroyed. */

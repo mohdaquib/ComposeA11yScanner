@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,7 @@ class A11yNodeExtractorTest {
         val clickableNode = nodes.single { it.isTouchTarget && it.contentDescription == "Go" }
 
         assertEquals("ClickableText", clickableNode.composableName)
+        assertTrue(!clickableNode.hasExplicitContentDescription)
     }
 
     @Test
@@ -49,6 +52,29 @@ class A11yNodeExtractorTest {
 
         assertEquals("Clickable", clickableNode.composableName)
         assertTrue(clickableNode.contentDescription.isNullOrBlank())
+    }
+
+    @Test
+    fun explicitDescription_isDistinguishedFromTextFallback() {
+        composeRule.setContent {
+            Box(
+                modifier = Modifier
+                    .semantics { contentDescription = "Home" }
+                    .clickable { },
+            ) {
+                Text("Home")
+            }
+        }
+
+        composeRule.waitForIdle()
+
+        val nodes = A11yNodeExtractor()
+            .extract(composeRule.onRoot(useUnmergedTree = true).fetchSemanticsNode())
+        val clickableNode = nodes.single { it.isTouchTarget }
+
+        assertEquals("Home", clickableNode.contentDescription)
+        assertEquals("Home", clickableNode.textLabel)
+        assertTrue(clickableNode.hasExplicitContentDescription)
     }
 
     @Test

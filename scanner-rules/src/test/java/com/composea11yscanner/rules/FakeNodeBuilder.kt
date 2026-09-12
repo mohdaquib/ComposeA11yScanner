@@ -24,6 +24,8 @@ fun createNode(
     parentNodeId: String? = null,
     isEnabled: Boolean = true,
     isCollectionContainer: Boolean = false,
+    textLabel: String? = null,
+    hasExplicitContentDescription: Boolean = false,
 ): A11yNode = A11yNode(
     nodeId = nodeId,
     composableName = composableName,
@@ -40,4 +42,6 @@ fun createNode(
     parentNodeId = parentNodeId,
     isEnabled = isEnabled,
     isCollectionContainer = isCollectionContainer,
+    textLabel = textLabel,
+    hasExplicitContentDescription = hasExplicitContentDescription,
 )

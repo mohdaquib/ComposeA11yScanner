@@ -101,6 +101,10 @@ class A11yNodeExtractor {
         } else {
             null
         }
+        val explicitContentDescription = config
+            .getOrNull(SemanticsProperties.ContentDescription)
+            ?.joinToString(separator = ", ")
+            ?.takeIf(String::isNotBlank)
         val visualBounds = boundsInRoot
         val bounds = visualBounds.toCoreRect()
 
@@ -112,10 +116,9 @@ class A11yNodeExtractor {
                 textLabel = textLabel,
             ),
             bounds = bounds,
-            contentDescription = config
-                .getOrNull(SemanticsProperties.ContentDescription)
-                ?.joinToString(separator = ", ")
-                ?: textLabel,
+            contentDescription = explicitContentDescription ?: textLabel,
+            textLabel = textLabel,
+            hasExplicitContentDescription = explicitContentDescription != null,
             isTouchTarget = isTouchTarget,
             textColor = null,               // not available via semantics
             backgroundColors = emptyList(), // not available via semantics
@@ -132,6 +135,13 @@ class A11yNodeExtractor {
             parentNodeId = parentNodeId,
             isEnabled = isEnabled,
             isCollectionContainer = config.contains(SemanticsProperties.CollectionInfo),
+            isTraversalGroup = config.getOrNull(SemanticsProperties.IsTraversalGroup) == true,
+            unclippedBounds = Rect(
+                positionInRoot.x.roundToInt(),
+                positionInRoot.y.roundToInt(),
+                (positionInRoot.x + size.width).roundToInt(),
+                (positionInRoot.y + size.height).roundToInt(),
+            ),
         )
     }
 

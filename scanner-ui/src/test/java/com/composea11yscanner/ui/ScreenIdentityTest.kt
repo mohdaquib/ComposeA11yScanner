@@ -77,8 +77,9 @@ class ScreenIdentityTest {
     }
 
     @Test
-    fun `readiness ignores ids and exact bounds but observes visible node counts`() {
+    fun `readiness ignores ids but observes bounds and visible node counts`() {
         val first = listOf(node("one", depth = 1), node("two", depth = 2, name = "Text"))
+        val recreated = listOf(node("nine", depth = 1), node("ten", depth = 2, name = "Text"))
         val animated = listOf(
             node("nine", depth = 1, bounds = Rect(10, 10, 90, 90)),
             node("ten", depth = 2, name = "Text", bounds = Rect(20, 20, 80, 80)),
@@ -87,11 +88,68 @@ class ScreenIdentityTest {
 
         assertEquals(
             calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = first),
+            calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = recreated),
+        )
+        assertNotEquals(
+            calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = recreated),
             calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = animated),
         )
         assertNotEquals(
             calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = animated),
             calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = populated),
+        )
+    }
+
+    @Test
+    fun `readiness observes semantic text becoming available`() {
+        val incomplete = listOf(
+            node(
+                "book-1",
+                depth = 4,
+                name = "ClickableText",
+                contentDescription = "Book cover image",
+            ),
+        )
+        val complete = listOf(
+            node(
+                "book-9",
+                depth = 4,
+                name = "ClickableText",
+                contentDescription = "Book cover image",
+                textLabel = "Moby Dick, Herman Melville, English",
+            ),
+        )
+
+        assertNotEquals(
+            calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = incomplete),
+            calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = complete),
+        )
+    }
+
+    @Test
+    fun `readiness observes effective touch bounds settling after navigation`() {
+        val transitioning = listOf(
+            node(
+                "book-old",
+                depth = 4,
+                name = "ClickableText",
+                isTouchTarget = true,
+                effectiveTouchBounds = Rect(0, 0, 100, 120),
+            ),
+        )
+        val settled = listOf(
+            node(
+                "book-new",
+                depth = 4,
+                name = "ClickableText",
+                isTouchTarget = true,
+                effectiveTouchBounds = Rect(0, 0, 100, 100),
+            ),
+        )
+
+        assertNotEquals(
+            calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = transitioning),
+            calculateReadinessFingerprint(hostIdentity = 1, visibleNodes = settled),
         )
     }
 
@@ -101,16 +159,21 @@ class ScreenIdentityTest {
         name: String = "Unknown",
         bounds: Rect = Rect(0, 0, 100, 100),
         isTouchTarget: Boolean = false,
+        effectiveTouchBounds: Rect? = bounds.takeIf { isTouchTarget },
+        contentDescription: String? = null,
+        textLabel: String? = null,
     ): A11yNode = A11yNode(
         nodeId = id,
         composableName = name,
         bounds = bounds,
-        contentDescription = null,
+        contentDescription = contentDescription,
         isTouchTarget = isTouchTarget,
         textColor = null,
         backgroundColors = emptyList(),
         isFocusable = isTouchTarget,
         isMergedDescendant = false,
         depth = depth,
+        effectiveTouchBounds = effectiveTouchBounds,
+        textLabel = textLabel,
     )
 }

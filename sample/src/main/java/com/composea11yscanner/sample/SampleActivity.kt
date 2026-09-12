@@ -19,10 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -30,7 +28,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -45,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,12 +90,15 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
         derivedStateOf { scanScrollY - scrollState.value }
     }
     val scannerController = remember(activity) {
+        var scanNodes = SampleScanNodes()
         A11yScannerController(
             nodeProvider = {
                 scanScrollY = scrollState.value
-                activity?.extractBrokenSampleNodes().orEmpty()
+                scanNodes = activity?.extractBrokenSampleNodes() ?: SampleScanNodes()
+                scanNodes.visibleNodes
             },
             screenDensity = activity?.resources?.displayMetrics?.density ?: 1f,
+            ruleNodeOverridesProvider = { mapOf("focus-order" to scanNodes.focusOrderNodes) },
         )
     }
     val scannerConfig = remember(selectedScreen, viewingFixed) {
@@ -115,6 +116,10 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
     LaunchedEffect(selectedScreen, viewingFixed) {
         scanScrollY = scrollState.value
         scannerController.clearState()
+        // Wait for the selected sample to be laid out before extracting bounds.
+        withFrameNanos { }
+        withFrameNanos { }
+        startSampleScan()
     }
 
     scanOnShake(onScanRequested = { startSampleScan() })
@@ -125,14 +130,12 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxSize(),
         issueOffsetY = issueOffsetY,
         summaryBarTopOffset = 64.dp,
+        inspectionToggleBottomOffset = 80.dp,
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                SampleTopBar(
-                    onClear = { scannerController.clearState() },
-                    onScan = { startSampleScan() },
-                )
+                SampleTopBar()
             },
             bottomBar = {
                 SampleBottomBar(
@@ -164,10 +167,7 @@ fun BrokenAccessibilitySampleApp(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SampleTopBar(
-    onClear: () -> Unit,
-    onScan: () -> Unit,
-) {
+private fun SampleTopBar() {
     CenterAlignedTopAppBar(
         title = {
             Text(
@@ -175,20 +175,6 @@ private fun SampleTopBar(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
-        },
-        actions = {
-            IconButton(onClick = onClear) {
-                Icon(
-                    imageVector = Icons.Filled.Clear,
-                    contentDescription = "Clear scan results",
-                )
-            }
-            IconButton(onClick = onScan) {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = "Scan selected sample",
-                )
-            }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = MaterialTheme.colorScheme.surface,
