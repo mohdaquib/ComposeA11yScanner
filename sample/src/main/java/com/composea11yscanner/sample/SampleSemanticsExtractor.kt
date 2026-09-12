@@ -1,5 +1,6 @@
 package com.composea11yscanner.sample
 
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
@@ -39,12 +40,20 @@ internal suspend fun ComponentActivity.extractBrokenSampleNodes(): SampleScanNod
             ?: sampleRoot.boundsInRoot.let {
                 Rect(it.left.roundToInt(), it.top.roundToInt(), it.right.roundToInt(), it.bottom.roundToInt())
             }
-        val bitmap = captureRenderedView(window, hostView)
+        val allNodes = A11yNodeExtractor().extract(sampleRoot)
+        // PixelCopy window capture requires API 26; keep semantic checks on API 24–25.
+        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            captureRenderedView(window, hostView)
+        } else {
+            null
+        }
         try {
-            val allNodes = A11yNodeExtractor().extract(sampleRoot)
-            val visibleNodes = RenderedTextContrastAnalyzer(hostView)
-                .analyze(allNodes, bitmap)
-                .filterVisibleIn(viewport)
+            val analyzedNodes = if (bitmap != null) {
+                RenderedTextContrastAnalyzer(hostView).analyze(allNodes, bitmap)
+            } else {
+                allNodes
+            }
+            val visibleNodes = analyzedNodes.filterVisibleIn(viewport)
             val visibleIds = visibleNodes.map { it.nodeId }.toSet()
             SampleScanNodes(
                 visibleNodes = visibleNodes,
@@ -57,7 +66,7 @@ internal suspend fun ComponentActivity.extractBrokenSampleNodes(): SampleScanNod
                 },
             )
         } finally {
-            bitmap.recycle()
+            bitmap?.recycle()
         }
     }.getOrDefault(SampleScanNodes())
 
