@@ -41,7 +41,10 @@ class A11yScanEngine(
      * @param nodes Nodes extracted from the UI semantics tree.
      * @return Flow of [ScannerState] values for progress, success, or failure.
      */
-    fun scan(nodes: List<A11yNode>): Flow<ScannerState> = flow {
+    fun scan(
+        nodes: List<A11yNode>,
+        ruleNodeOverrides: Map<String, List<A11yNode>> = emptyMap(),
+    ): Flow<ScannerState> = flow {
         // Fast path: nothing to evaluate.
         if (enabledRules.isEmpty() || nodes.isEmpty()) {
             emit(ScannerState.Complete(buildResult(nodes.size, emptyList(), emptySet())))
@@ -55,7 +58,9 @@ class A11yScanEngine(
 
         try {
             enabledRules.forEachIndexed { index, rule ->
-                val issues = rule.evaluateAll(nodes)
+                val ruleNodes = ruleNodeOverrides[rule.ruleId] ?: nodes
+                // Context nodes participate in traversal but never produce offscreen issues.
+                val issues = rule.evaluateAll(ruleNodes).filter { it.affectedNode.isVisibleToUser }
                 allIssues += issues
                 if (issues.isNotEmpty()) failedRuleIds += rule.ruleId
                 // Progress advances to 1f after the last rule.

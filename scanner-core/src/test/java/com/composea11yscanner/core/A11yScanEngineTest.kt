@@ -295,6 +295,29 @@ class A11yScanEngineTest {
     }
 
     @Test
+    fun `rule override is isolated to its matching rule`() = runTest {
+        val mergedNodes = listOf(stubNode("merged"))
+        val contrastNodes = listOf(stubNode("leaf-text"))
+        val semanticRule = mockRule("missing-content-description")
+        val contrastRule = mockRule("text-contrast")
+        val engine = A11yScanEngine(
+            rules = listOf(semanticRule, contrastRule),
+            config = configOf("missing-content-description", "text-contrast"),
+        )
+
+        engine.scan(
+            nodes = mergedNodes,
+            ruleNodeOverrides = mapOf("text-contrast" to contrastNodes),
+        ).test {
+            repeat(4) { awaitItem() }
+            awaitComplete()
+        }
+
+        verify(exactly = 1) { semanticRule.evaluateAll(mergedNodes) }
+        verify(exactly = 1) { contrastRule.evaluateAll(contrastNodes) }
+    }
+
+    @Test
     fun `scanId is non-blank in every Complete result`() = runTest {
         val engine = A11yScanEngine(rules = emptyList(), config = configOf())
         engine.scan(emptyList()).test {
@@ -302,6 +325,27 @@ class A11yScanEngineTest {
             assertTrue(result.scanId.isNotBlank())
             awaitComplete()
         }
+    }
+
+    @Test
+    fun `context-only issues are excluded from results and failed rule counts`() = runTest {
+        val visible = stubNode("visible")
+        val hidden = stubNode("offscreen").copy(isVisibleToUser = false)
+        val hiddenIssue = stubIssue("focus-order").copy(affectedNode = hidden)
+        val rule = mockRule("focus-order", listOf(hiddenIssue))
+        val engine = A11yScanEngine(listOf(rule), configOf("focus-order"))
+        val traversalNodes = listOf(hidden, visible)
+        engine.scan(listOf(visible), mapOf("focus-order" to traversalNodes)).test {
+            awaitItem()
+            awaitItem()
+            val result = (awaitItem() as ScannerState.Complete).result
+            assertTrue(result.issues.isEmpty())
+            assertEquals(0, result.failedRules)
+            assertEquals(1, result.passedRules)
+            assertEquals(1, result.totalNodes)
+            awaitComplete()
+        }
+        verify { rule.evaluateAll(traversalNodes) }
     }
 
     // ── error handling ────────────────────────────────────────────────────────

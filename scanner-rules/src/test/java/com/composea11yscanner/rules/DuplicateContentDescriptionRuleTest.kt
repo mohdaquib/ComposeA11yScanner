@@ -28,6 +28,69 @@ class DuplicateContentDescriptionRuleTest {
     }
 
     @Test
+    fun `shared description prefix with unique spoken text is not a duplicate`() {
+        val nodes = listOf(
+            createNode(
+                bounds = Rect(0, 0, 100, 100),
+                contentDescription = "Book cover image",
+                textLabel = "Moby Dick, Herman Melville, English",
+                isTouchTarget = true,
+            ),
+            createNode(
+                bounds = Rect(0, 100, 100, 200),
+                contentDescription = "Book cover image",
+                textLabel = "Pride and Prejudice, Jane Austen, English",
+                isTouchTarget = true,
+            ),
+        )
+
+        assertTrue(rule.evaluateAll(nodes).isEmpty())
+    }
+
+    @Test
+    fun `explicit description matching visible text produces one within-target issue`() {
+        val homeItem = createNode(
+            composableName = "ClickableText",
+            contentDescription = "Home",
+            textLabel = "Home",
+            hasExplicitContentDescription = true,
+            isTouchTarget = true,
+        )
+
+        val issues = rule.evaluateAll(listOf(homeItem))
+
+        assertEquals(1, issues.size)
+        assertTrue(issues.single().message.contains("announces 'Home' more than once"))
+        assertTrue(issues.single().howToFix.contains("contentDescription to null"))
+    }
+
+    @Test
+    fun `text fallback matching visible text is not a within-target duplicate`() {
+        val textOnlyItem = createNode(
+            composableName = "ClickableText",
+            contentDescription = "Home",
+            textLabel = "Home",
+            hasExplicitContentDescription = false,
+            isTouchTarget = true,
+        )
+
+        assertTrue(rule.evaluateAll(listOf(textOnlyItem)).isEmpty())
+    }
+
+    @Test
+    fun `different explicit description and visible text are not within-target duplicates`() {
+        val bookItem = createNode(
+            composableName = "ClickableText",
+            contentDescription = "Book cover image",
+            textLabel = "Moby Dick, Herman Melville, English",
+            hasExplicitContentDescription = true,
+            isTouchTarget = true,
+        )
+
+        assertTrue(rule.evaluateAll(listOf(bookItem)).isEmpty())
+    }
+
+    @Test
     fun `same description at different depths is not a duplicate`() {
         val nodes = listOf(
             createNode(parentNodeId = "toolbar", depth = 1, contentDescription = "Submit"),
@@ -82,6 +145,29 @@ class DuplicateContentDescriptionRuleTest {
             createNode(depth = 1, bounds = Rect(200, 0, 300, 100), contentDescription = "Delete"),
         )
         assertEquals(3, rule.evaluateAll(nodes).size)
+    }
+
+    @Test
+    fun `same description and spoken text remain duplicates`() {
+        val nodes = listOf(
+            createNode(
+                bounds = Rect(0, 0, 100, 100),
+                contentDescription = "Book cover image",
+                textLabel = "Untitled book",
+                isTouchTarget = true,
+            ),
+            createNode(
+                bounds = Rect(0, 100, 100, 200),
+                contentDescription = "Book cover image",
+                textLabel = "Untitled book",
+                isTouchTarget = true,
+            ),
+        )
+
+        val issues = rule.evaluateAll(nodes)
+
+        assertEquals(2, issues.size)
+        assertTrue(issues.all { it.message.contains("'Book cover image, Untitled book'") })
     }
 
     // --- edge cases ---

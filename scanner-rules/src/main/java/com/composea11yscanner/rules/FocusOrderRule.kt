@@ -85,10 +85,20 @@ class FocusOrderRule(
             return false
         }
 
-        return when {
-            first.parentNodeId == null && second.parentNodeId == null -> true
-            else -> first.parentNodeId == second.parentNodeId
+        return first.traversalScope(nodesById) == second.traversalScope(nodesById)
+    }
+
+    /** Non-focusable semantics wrappers do not establish a traversal boundary. */
+    private fun A11yNode.traversalScope(nodesById: Map<String, A11yNode>): String? {
+        var parentId = parentNodeId
+        val visited = mutableSetOf<String>()
+        while (parentId != null && visited.add(parentId)) {
+            // Preserve unknown boundaries when callers supply only part of a tree.
+            val parent = nodesById[parentId] ?: return parentId
+            if (parent.isTraversalGroup || parent.isFocusable) return parentId
+            parentId = parent.parentNodeId
         }
+        return parentId
     }
 
     private fun A11yNode.hasCollectionAncestor(nodesById: Map<String, A11yNode>): Boolean {

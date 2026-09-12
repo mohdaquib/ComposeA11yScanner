@@ -1,18 +1,42 @@
 package com.composea11yscanner.ui
 
 import android.graphics.Bitmap
+import android.os.Build
+import android.graphics.Rect as AndroidRect
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.view.PixelCopy
 import android.view.View
+import android.view.Window
+import androidx.annotation.RequiresApi
 import androidx.core.view.drawToBitmap
 import com.composea11yscanner.core.model.A11yNode
 import com.composea11yscanner.core.model.Color
 import com.composea11yscanner.core.model.Rect
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.math.max
+import kotlinx.coroutines.suspendCancellableCoroutine
+import androidx.core.graphics.createBitmap
 
 /** Enriches semantic Text nodes with colors measured from one rendered view capture. */
 class RenderedTextContrastAnalyzer(private val rootView: View) {
     /** Returns unchanged nodes when the rendered colors cannot be measured confidently. */
+    @Deprecated(
+        message = "Use analyze(nodes, bitmap) with a hardware-compatible PixelCopy capture",
+    )
     fun analyze(nodes: List<A11yNode>): List<A11yNode> {
+        val bitmap = rootView.drawToBitmap()
+        return try {
+            analyze(nodes, bitmap)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /** Enriches [nodes] using a rendered bitmap whose origin matches the semantics host. */
+    fun analyze(nodes: List<A11yNode>, bitmap: Bitmap): List<A11yNode> {
         nodes.forEach { node ->
             Log.d(
                 "TextContrast",
@@ -23,33 +47,114 @@ class RenderedTextContrastAnalyzer(private val rootView: View) {
             )
         }
 
-        if (nodes.none { it.composableName == "Text" && it.isEnabled }) return nodes
-        if (rootView.width <= 0 || rootView.height <= 0) return nodes
+        val measurableNodeIds = measurableTextNodeIds(nodes)
+        if (measurableNodeIds.isEmpty()) return nodes
+        if (bitmap.width <= 0 || bitmap.height <= 0) return nodes
 
-        val bitmap = rootView.drawToBitmap()
-        return try {
-            nodes.map { node ->
-                if (node.composableName != "Text" || !node.isEnabled) return@map node
-                val colors = SolidBackgroundTextColorEstimator.estimate(bitmap, node.bounds)
-                    ?: return@map node
+        return nodes.map { node ->
+            if (node.nodeId !in measurableNodeIds) return@map node
+            val colors = SolidBackgroundTextColorEstimator.estimate(bitmap, node.bounds)
+                ?: return@map node
 
-                Log.d(
-                    "TextContrast",
-                    "measured: id=${node.nodeId}, " +
-                            "bounds=${node.bounds}, " +
-                            "foreground=${colors.foreground}, " +
-                            "background=${colors.background}",
-                )
+            Log.d(
+                "TextContrast",
+                "measured: id=${node.nodeId}, " +
+                        "bounds=${node.bounds}, " +
+                        "foreground=${colors.foreground}, " +
+                        "background=${colors.background}",
+            )
 
-                node.copy(
-                    textColor = colors.foreground,
-                    backgroundColors = listOf(colors.background),
-                )
-            }
-        } finally {
-            bitmap.recycle()
+            node.copy(
+                textColor = colors.foreground,
+                backgroundColors = listOf(colors.background),
+            )
         }
     }
+}
+
+/** Copies the rendered Compose host from the hardware-backed application window. */
+@RequiresApi(Build.VERSION_CODES.O)
+suspend fun captureRenderedView(window: Window, view: View): Bitmap {
+    check(view.isAttachedToWindow && view.width > 0 && view.height > 0) {
+        "Cannot capture a detached or empty Compose host"
+    }
+
+    val location = IntArray(2)
+    view.getLocationInWindow(location)
+    val sourceRect = AndroidRect(
+        location[0],
+        location[1],
+        location[0] + view.width,
+        location[1] + view.height,
+    )
+    val bitmap = createBitmap(view.width, view.height)
+
+    return suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation {
+            if (!bitmap.isRecycled) bitmap.recycle()
+        }
+        runCatching {
+            PixelCopy.request(
+                window,
+                sourceRect,
+                bitmap,
+                { result ->
+                    if (!continuation.isActive) {
+                        if (!bitmap.isRecycled) bitmap.recycle()
+                    } else if (result == PixelCopy.SUCCESS) {
+                        continuation.resume(bitmap)
+                    } else {
+                        if (!bitmap.isRecycled) bitmap.recycle()
+                        continuation.resumeWithException(
+                            IllegalStateException("PixelCopy failed with status $result"),
+                        )
+                    }
+                },
+                Handler(Looper.getMainLooper()),
+            )
+        }.onFailure { error ->
+            if (!bitmap.isRecycled) bitmap.recycle()
+            if (continuation.isActive) continuation.resumeWithException(error)
+        }
+    }
+}
+
+/**
+ * Selects the tightest enabled semantic Text nodes available for pixel measurement.
+ *
+ * Merging containers can inherit their descendants' Text semantics while retaining bounds for the
+ * entire control. Measuring such a container can mistake a selected pill, icon, or adjacent surface
+ * for the text foreground. When a Text node has a Text descendant, only the descendant is measured.
+ */
+internal fun measurableTextNodeIds(nodes: List<A11yNode>): Set<String> {
+    val nodesByParent = nodes
+        .mapNotNull { node -> node.parentNodeId?.let { parentId -> parentId to node } }
+        .groupBy(keySelector = { it.first }, valueTransform = { it.second })
+
+    fun A11yNode.hasEnabledTextDescendant(): Boolean {
+        val pending = ArrayDeque(nodesByParent[nodeId].orEmpty())
+        val visited = mutableSetOf<String>()
+        while (pending.isNotEmpty()) {
+            val descendant = pending.removeFirst()
+            if (!visited.add(descendant.nodeId)) continue
+            if (descendant.isEnabled && descendant.composableName == "Text") return true
+            pending.addAll(nodesByParent[descendant.nodeId].orEmpty())
+        }
+        return false
+    }
+
+    return nodes
+        .asSequence()
+        .filter { it.isEnabled && it.composableName == "Text" }
+        .filterNot { it.hasEnabledTextDescendant() }
+        // A merged target can inherit descendant text while keeping the bounds of the whole
+        // control. Those bounds may contain images, icons, and container colors, so measure the
+        // unmerged Text descendants instead. If none are available, skipping is safer than using
+        // a surface or image color as the text foreground.
+        .filterNot {
+            it.hasExplicitContentDescription && !it.textLabel.isNullOrBlank()
+        }
+        .mapTo(mutableSetOf(), A11yNode::nodeId)
 }
 
 /** A rendered foreground/background pair suitable for WCAG contrast calculation. */

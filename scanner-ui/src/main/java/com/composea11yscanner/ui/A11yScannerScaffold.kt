@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +57,7 @@ import com.composea11yscanner.core.model.ScannerState
  * @param issueOffsetY Vertical offset applied to issue highlights.
  * @param summaryBarTopOffset Additional distance between the status bar and the scan summary.
  * Use this when host content has a top app bar that must remain visible while scan results are shown.
+ * @param inspectionToggleBottomOffset Extra space above host bottom navigation for the toggle.
  * @param content Host UI content being scanned.
  */
 @Composable
@@ -65,10 +67,12 @@ fun A11yScannerScaffold(
     modifier: Modifier = Modifier,
     issueOffsetY: Int = 0,
     summaryBarTopOffset: Dp = 0.dp,
+    inspectionToggleBottomOffset: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
     var scannerState by remember { mutableStateOf<ScannerState>(ScannerState.Idle) }
     var selectedIssues by remember { mutableStateOf(emptyList<A11yIssue>()) }
+    var inspectionEnabled by remember { mutableStateOf(true) }
 
     // Cancel any in-flight scan when the scaffold leaves composition.
     DisposableEffect(Unit) {
@@ -78,7 +82,10 @@ fun A11yScannerScaffold(
     LaunchedEffect(Unit) {
         scannerController.stateFlow.collect { state ->
             scannerState = state
-            if (state !is ScannerState.Complete) selectedIssues = emptyList()
+            if (state !is ScannerState.Complete) {
+                selectedIssues = emptyList()
+                inspectionEnabled = true
+            }
         }
     }
 
@@ -100,7 +107,7 @@ fun A11yScannerScaffold(
 
         // ── 2. Issue highlight overlay ───────────────────────────────────────
         A11yIssueOverlay(
-            scanResult = scanResult,
+            scanResult = scanResult.takeIf { inspectionEnabled },
             onIssuesSelected = { selectedIssues = it },
             modifier = Modifier.fillMaxSize(),
             issueOffsetY = issueOffsetY,
@@ -108,7 +115,7 @@ fun A11yScannerScaffold(
 
         // ── 3. Summary bar — slides down from the top once scanning starts ───
         AnimatedVisibility(
-            visible = scannerState !is ScannerState.Idle,
+            visible = scannerState !is ScannerState.Idle && inspectionEnabled,
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
             modifier = Modifier
@@ -125,10 +132,29 @@ fun A11yScannerScaffold(
 
         // ── 4. Issue detail panel — slides up when an overlay box is tapped ──
         IssueDetailPanel(
-            issues = selectedIssues,
+            issues = selectedIssues.takeIf { inspectionEnabled }.orEmpty(),
             onDismiss = { selectedIssues = emptyList() },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+
+        AnimatedVisibility(
+            visible = scanResult != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(bottom = inspectionToggleBottomOffset)
+                .padding(16.dp),
+        ) {
+            InspectionModeToggle(
+                inspectionEnabled = inspectionEnabled,
+                onInspectionEnabledChange = { enabled ->
+                    inspectionEnabled = enabled
+                    if (!enabled) selectedIssues = emptyList()
+                },
+            )
+        }
     }
 }
 
