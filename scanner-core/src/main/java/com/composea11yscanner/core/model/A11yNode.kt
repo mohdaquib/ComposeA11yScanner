@@ -7,6 +7,11 @@ package com.composea11yscanner.core.model
  * @property composableName Best-effort composable or role name used in reports.
  * @property bounds Pixel bounds relative to the scanned root.
  * @property contentDescription Accessible label exposed by the node, if any.
+ * @property textLabel Visible semantic text TalkBack can append to [contentDescription]. Keeping
+ * this separate lets rules reason about the complete spoken label instead of treating a shared
+ * prefix, such as "Book cover image", as the whole accessible name.
+ * @property hasExplicitContentDescription True when [contentDescription] came from Compose's
+ * ContentDescription semantics rather than falling back to [textLabel].
  * @property isTouchTarget True when the node exposes a click action.
  * @property effectiveTouchBounds Effective pointer target bounds in root pixels for clickable nodes.
  * @property textColor Foreground text color when it can be extracted.
@@ -36,4 +41,12 @@ data class A11yNode(
     val parentNodeId: String? = null,
     val isEnabled: Boolean = true,
     val isCollectionContainer: Boolean = false,
+    val textLabel: String? = null,
+    val hasExplicitContentDescription: Boolean = false,
+    /** Whether this node establishes a separate accessibility traversal scope. */
+    val isTraversalGroup: Boolean = false,
+    /** Full layout bounds, including content clipped by a scrolling viewport. */
+    val unclippedBounds: Rect? = null,
+    /** False for context-only nodes that must not receive an issue highlight. */
+    val isVisibleToUser: Boolean = true,
 )
