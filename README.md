@@ -28,8 +28,7 @@ default and can opt in explicitly for trusted internal use.
 
 ## What's new in 3.0.0
 
-This README describes the upcoming 3.0.0 release. The dependency coordinates below become available
-once the `3.0.0` tag is published and its JitPack build succeeds.
+Version `3.0.0` is available on JitPack. See the [release notes](https://github.com/mohdaquib/ComposeA11yScanner/releases/tag/3.0.0) for highlights and breaking API changes.
 
 - **Runtime availability control:** `ComposeA11yScanner.toggleScanner(enabled)` enables or disables
   the scanner, including explicit opt-in for trusted non-debuggable builds.
@@ -45,7 +44,7 @@ once the `3.0.0` tag is published and its JitPack build succeeds.
 3.0.0 changes public API signatures. Read [Migrating from 2.1.0](#migrating-from-210) before upgrading,
 especially if you construct controllers, embed the scaffold, or distribute libraries using the scanner.
 
-[Changes since 2.1.0](https://github.com/mohdaquib/ComposeA11yScanner/compare/2.1.0...main)
+[Changes since 2.1.0](https://github.com/mohdaquib/ComposeA11yScanner/compare/2.1.0...3.0.0)
 
 ## Contents
 
