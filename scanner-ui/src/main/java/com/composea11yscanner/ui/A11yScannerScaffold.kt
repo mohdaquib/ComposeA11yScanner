@@ -1,6 +1,7 @@
 package com.composea11yscanner.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -140,7 +141,9 @@ fun A11yScannerScaffold(
         AnimatedVisibility(
             visible = scanResult != null,
             enter = fadeIn(),
-            exit = fadeOut(),
+            // Remove the floating control immediately before the next pixel capture.
+            // A fading control can cover host text and produce a false contrast result.
+            exit = ExitTransition.None,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
