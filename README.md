@@ -26,24 +26,31 @@ default and can opt in explicitly for trusted internal use.
 - **Default-deny integration** - debug builds work automatically unless explicitly disabled; trusted builds must opt in.
 - **Extensible rules** - use the bundled rules or add checks for your own accessibility standards.
 
-## What's new in 2.1.0
+## What's new in 3.0.0
 
-- Added `TextContrastRule` with conservative screenshot-based foreground and background analysis.
-- Improved scanning across Fragment navigation and Compose destination changes.
-- Improved Compose host selection, screen-readiness detection, and stale-result invalidation.
-- Reduced false positives and false negatives involving merged semantics, lazy layouts, off-screen
-  nodes, repeated descriptions, rich text, and overlapping touch targets.
-- Preserved source compatibility with 2.0.0; no public API was removed.
+This README describes the upcoming 3.0.0 release. The dependency coordinates below become available
+once the `3.0.0` tag is published and its JitPack build succeeds.
 
-Because rendered text contrast is now checked by default, 2.1.0 may report valid warnings that
-earlier versions could not detect.
+- **Runtime availability control:** `ComposeA11yScanner.toggleScanner(enabled)` enables or disables
+  the scanner, including explicit opt-in for trusted non-debuggable builds.
+- **Inspection controls:** switch between inspecting issue highlights and interacting with the app
+  without uninstalling the scanner.
+- **More reliable scans:** improved activity routing, lifecycle cleanup, Compose host selection,
+  semantic stability checks, and stale-result invalidation.
+- **More accurate findings:** improved duplicate-label and rendered text-contrast checks. The sample
+  Form preserves offscreen traversal context so the Amount focus-order issue is detected.
+- **Android compatibility:** semantics checks support API 24+; rendered-pixel contrast analysis uses
+  hardware-compatible capture on API 26+.
 
-[Read the 2.1.0 release notes](https://github.com/mohdaquib/ComposeA11yScanner/releases/tag/2.1.0)
-or view the [full changelog](https://github.com/mohdaquib/ComposeA11yScanner/compare/v2.0.0...2.1.0).
+3.0.0 changes public API signatures. Read [Migrating from 2.1.0](#migrating-from-210) before upgrading,
+especially if you construct controllers, embed the scaffold, or distribute libraries using the scanner.
+
+[Changes since 2.1.0](https://github.com/mohdaquib/ComposeA11yScanner/compare/2.1.0...main)
 
 ## Contents
 
-- [What's new in 2.1.0](#whats-new-in-210)
+- [What's new in 3.0.0](#whats-new-in-300)
+- [Migrating from 2.1.0](#migrating-from-210)
 - [Quick start](#quick-start)
 - [Configuration](#configuration)
 - [Built-in rules](#built-in-rules)
@@ -52,6 +59,28 @@ or view the [full changelog](https://github.com/mohdaquib/ComposeA11yScanner/com
 - [Architecture](#architecture)
 - [Support and contributions](#support-and-contributions)
 - [Featured in](#featured-in)
+
+## Migrating from 2.1.0
+
+Update the dependency to `3.0.0` and rebuild all consuming modules and libraries together. Public
+constructor and method signatures changed; this is not a binary-compatible replacement for 2.1.0.
+Many existing Kotlin calls still compile because the added parameters have defaults.
+
+| API | Change and migration |
+| --- | --- |
+| `A11yScannerController` | `nodeProvider` is now `suspend () -> List<A11yNode>` and runs on the main dispatcher. Inline lambdas can stay as they are; wrap existing synchronous providers as `{ existingProvider() }`. Keep UI extraction on the main thread and move any expensive non-UI work to an appropriate dispatcher. An optional `ruleNodeOverridesProvider` supplies nodes for individual rules. |
+| `A11yScannerScaffold` | Adds `summaryBarTopOffset` and `inspectionToggleBottomOffset` before `content`. Use named arguments and a trailing content lambda; a previous fifth positional content argument must be updated. |
+| `A11yScanEngine.scan` | Adds optional `ruleNodeOverrides`. Ordinary Kotlin `scan(nodes)` calls still work after recompilation; Java callers must supply the additional map argument. |
+| `A11yNode` | Adds label, traversal-group, unclipped-bounds, and visibility metadata with defaults. Recompile code that constructs or copies nodes, and update Java constructor calls to include the new fields. |
+| `RenderedTextContrastAnalyzer` | `analyze(nodes)` is deprecated. For rendered analysis, use `analyze(nodes, bitmap)` with `captureRenderedView(window, view)` on API 26+, and recycle the bitmap afterward. On API 24–25, retain semantic nodes without pixel enrichment. |
+
+Automatic debug-only integrations retain their default setup. `toggleScanner(true)` is needed only
+when explicitly enabling a non-debuggable build or re-enabling a disabled scanner. `toggleScanner(false)`
+removes overlays and blocks scanning; `uninstall(activity)` remains safe to call afterward.
+
+For custom node providers, return visible nodes normally. When using offscreen nodes as traversal
+context in a rule override, mark them `isVisibleToUser = false` so the engine does not report issues
+on those nodes. Preserve the full traversal sequence and use unclipped layout bounds for that analysis.
 
 ## Quick start
 
@@ -72,7 +101,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    debugImplementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:2.1.0")
+    debugImplementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:3.0.0")
 }
 ```
 
@@ -104,17 +133,17 @@ Android-debuggable:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:<version>")
+    implementation("com.github.mohdaquib.ComposeA11yScanner:scanner-ui:3.0.0")
 }
 ```
 
 Override scanner availability from the main thread whenever the consuming app's policy changes:
 
 ```kotlin
-ComposeA11yScanner.toggleScanner(enabled = scannerAllowed)
+ComposeA11yScanner.toggleScanner(enabled = scannerEnabled)
 ```
 
-`scannerAllowed` is owned by the consuming app and should default to `false`. Derive it from a
+`scannerEnabled` is owned by the consuming app and should default to `false`. Derive it from a
 positive allowlist and prefer an internal flavor/source set when available. The library does not
 know about the consuming app's endpoints or build policy. Calling `toggleScanner(true)` before an
 activity resumes installs on resume; calling it afterward installs immediately on every tracked
@@ -246,6 +275,12 @@ enabled. A custom navigator can also invalidate the current result explicitly:
 ComposeA11yScanner.notifyScreenChanged()
 ```
 
+### Inspection controls
+
+After a scan completes, select **Interact with app** to hide the highlights, summary, and issue
+panel while using the underlying UI. Select **Resume issue inspection** to show the results again.
+This controls the inspection UI; use `toggleScanner(false)` when you want to disable the scanner.
+
 ### Embedded scaffold
 
 `A11yScannerScaffold` is the advanced API for apps that want the scanner UI inside their own Compose hierarchy or need a custom node provider. It requires an `A11yScannerController`; most integrations should use the automatic activity overlay above.
@@ -276,6 +311,10 @@ See [RULES.md](RULES.md) for complete behavior, fixes, WCAG references, and exam
 | [Text Contrast](RULES.md#text-contrast---text-contrast) | Warning | Confidently measured rendered text below the configured contrast ratio. |
 
 ## Text contrast and known limitations
+
+Rendered-pixel analysis requires **Android API 26 or newer**. On API 24–25, the built-in integration
+and sample continue semantics-based checks and skip rendered contrast measurements. Custom capture
+code must apply the same API guard.
 
 `TextContrastRule` complements semantics-based checks with rendered-pixel analysis. The scanner
 captures the selected Compose host once, samples enabled semantic `Text` nodes, and applies the WCAG

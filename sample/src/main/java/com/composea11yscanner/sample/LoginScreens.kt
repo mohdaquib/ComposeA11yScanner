@@ -307,7 +307,7 @@ private fun GradientSignInButton(isFixed: Boolean) {
             .then(
                 if (isFixed) {
                     Modifier
-                        .semantics { contentDescription = "Sign in" }
+                        // The visible Text supplies the accessible label.
                         .clickable(role = Role.Button, onClick = {})
                 } else {
                     Modifier.clickable { }
