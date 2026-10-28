@@ -16,6 +16,14 @@ default and can opt in explicitly for trusted internal use.
 
 ![Annotated GIF showing the Compose A11y Scanner issue summary, view highlights, and issue detail sheet in the sample app](docs/overlay-demo.gif)
 
+## Conference Recognition
+
+🎤 **CSUN Assistive Technology Conference 2027 — Innovation Track**
+
+*Accepted Presentation: "ComposeA11yScanner: Catch Accessibility Bugs as You Build"*
+
+Previously featured in Android Weekly and the Jetpack Compose Newsletter.
+
 ## Why ComposeA11yScanner?
 
 - **Immediate visual feedback** - issues are outlined where they occur on the screen.
